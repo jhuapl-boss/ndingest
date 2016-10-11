@@ -1,2 +1,2 @@
 # ndingest
-An repository for ndingest on AWS
+A repository for ndingest on AWS
