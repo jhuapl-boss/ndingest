@@ -61,8 +61,9 @@ class UploadQueue(NDQueue):
       response = sqs.create_queue(
         QueueName = queue_name,
         Attributes = {
-          'DelaySeconds' : '0',
-          'MaximumMessageSize' : '262144'
+          'VisibilityTimeout': '120',
+          'DelaySeconds': '0',
+          'MaximumMessageSize': '262144'
         }
       )
       return queue_name

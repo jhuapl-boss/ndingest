@@ -3,6 +3,10 @@
     {
       "AttributeName": "chunk_key",
       "KeyType": "HASH"
+    },
+    {
+        "AttributeName": "task_id",
+        "KeyType": "RANGE"
     }
   ],
   "AttributeDefinitions": [

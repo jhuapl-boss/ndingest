@@ -37,14 +37,14 @@ class BossTileIndexDB:
     # creating the resource
     table_name = BossTileIndexDB.getTableName()
     dynamo = boto3.resource('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-    
+
     self.table = dynamo.Table(table_name)
     self.project_name = project_name
- 
+
   @staticmethod
   def createTable(schema, region_name=settings.REGION_NAME, endpoint_url=None):
-    """Create the tile index table in dynamodb.  
-    
+    """Create the tile index table in dynamodb.
+
     The table's name will be taken from settings.ini ([aws]tile_index_table).
     This method blocks until the table is created in DynamoDB.
 
@@ -53,12 +53,12 @@ class BossTileIndexDB:
         region_name (optional[string]): AWS region queue lives in.  Extracted from settings.ini if not provided.
         endpoint_url (optional[string]): Provide if using a mock or fake Boto3 service.
     """
-    
+
     # creating the resource
     table_name = BossTileIndexDB.getTableName()
     schema['TableName'] = table_name
     dynamo = boto3.resource('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-    
+
     try:
       table = dynamo.create_table(**schema)
     except Exception as e:
@@ -95,7 +95,7 @@ class BossTileIndexDB:
     # creating the resource
     table_name = BossTileIndexDB.getTableName()
     dynamo = boto3.resource('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
-    
+
     try:
       table = dynamo.Table(table_name)
       table.delete()
@@ -114,9 +114,9 @@ class BossTileIndexDB:
 
     Call this before using markTileAsUploaded().
 
-    The chunk_key represents the encodes the collection, experiment, 
-    channel/layer, and x, y, z, t indices of a cuboid.  In addition, it 
-    encodes the number of tiles that comprises the cuboid in the case where 
+    The chunk_key represents the encodes the collection, experiment,
+    channel/layer, and x, y, z, t indices of a cuboid.  In addition, it
+    encodes the number of tiles that comprises the cuboid in the case where
     there are less tiles than the normal size of a cuboid in the z direction.
 
     Args:
@@ -134,25 +134,27 @@ class BossTileIndexDB:
         print (e)
         raise
 
-  def markTileAsUploaded(self, chunk_key, tile_key):
+  def markTileAsUploaded(self, chunk_key, tile_key, task_id):
     """Mark the tile as uploaded.
 
-    Marks the tile belonging to the cuboid specified by the channel name, 
-    resolution, and coordinates as uploaded.  createCuboidEntry() must be 
+    Marks the tile belonging to the cuboid specified by the channel name,
+    resolution, and coordinates as uploaded.  createCuboidEntry() must be
     called with the given chunk_key before tiles may be marked as uploaded.
 
     Args:
         chunk_key (string): Key used to store the entry for the cuboid.
         tile_key (string): Key to retrieve tile from S3 bucket.
+        task_id (int): Task or job id that this cuboid belongs to.
 
     Returns:
         (dict): Map of uploaded tiles.
     """
-    
+
     try:
       response = self.table.update_item(
           Key = {
-            'chunk_key': chunk_key
+            'chunk_key': chunk_key,
+            'task_id': task_id
           },
           #UpdateExpression = 'ADD tile_uploaded_map.{} :uploaded'.format(tile_key),
           #ExpressionAttributeValues = {
@@ -172,11 +174,11 @@ class BossTileIndexDB:
     except botocore.exceptions.ClientError as e:
       print (e)
       raise
-  
+
 
   def cuboidReady(self, chunk_key, tile_uploaded_map):
     """Verify if we have all tiles for a given cuboid.
-    
+
     Args:
         chunk_key (string): Key used to store the entry for the cuboid.
         tile_uploaded_map (dict): Dictionary with tile keys as the keys.  Presence of a tile indicates it's been uploaded.
@@ -192,22 +194,24 @@ class BossTileIndexDB:
         return len(tile_uploaded_map) >= num_tiles
 
     return len(tile_uploaded_map) >= settings.SUPER_CUBOID_SIZE[2]
-  
 
-  def getCuboid(self, chunk_key):
+
+  def getCuboid(self, chunk_key, task_id):
     """Get the cuboid entry from the DynamoDB table.
 
     Args:
         chunk_key (string): Key used to store the entry for the cuboid.
+        task_id (int): Id of upload task/job.
 
     Returns:
         (dict|None): Keys include 'tile_uploaded_map' and 'chunk_key'.
     """
-    
+
     try:
       response = self.table.get_item(
           Key = {
-            'chunk_key' : chunk_key
+            'chunk_key': chunk_key,
+            'task_id': task_id
           },
           ConsistentRead = True,
           ReturnConsumedCapacity = 'INDEXES'
@@ -228,7 +232,7 @@ class BossTileIndexDB:
     Returns:
         (generator): Dictionary with keys: 'chunk_key', 'task_id', 'tile_uploaded_map'.
     """
-    
+
     try:
       response = self.table.query(
           IndexName = 'task_index',
@@ -244,14 +248,19 @@ class BossTileIndexDB:
       raise
 
 
-  def deleteCuboid(self, chunk_key):
+  def deleteCuboid(self, chunk_key, task_id):
     """Delete cuboid from database.
+
+    Args:
+        chunk_key (string): Key used to store the entry for the cuboid.
+        task_id (int): Id of upload task/job.
     """
-   
+
     try:
       response = self.table.delete_item(
           Key = {
-            'chunk_key' : chunk_key
+            'chunk_key': chunk_key,
+            'task_id': task_id
           }
       )
       return response
