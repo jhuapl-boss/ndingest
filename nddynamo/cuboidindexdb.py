@@ -25,6 +25,11 @@ from ndingest.util.util import Util
 UtilClass = Util.load()
 
 class CuboidIndexDB:
+  """DynamoDB index of cuboids stored in S3.
+
+  This class is not used by the Boss.  The Boss sets up its DynamoDB table via
+  CloudFormation.
+  """
 
   def __init__(self, project_name, region_name=settings.REGION_NAME, endpoint_url=None):
 

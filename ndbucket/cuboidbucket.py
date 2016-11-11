@@ -25,6 +25,11 @@ UtilClass = Util.load()
 
 
 class CuboidBucket:
+  """Cuboid bucket management.
+
+  This class is not used by the Boss since it manages its cuboid bucket
+  via CloudFormation.
+  """
 
   def __init__(self, project_name, region_name=settings.REGION_NAME, endpoint_url=None):
     """Create resource for the cuboid queue"""

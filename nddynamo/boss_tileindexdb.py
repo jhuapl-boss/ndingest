@@ -103,6 +103,25 @@ class BossTileIndexDB:
       print (e)
       raise
 
+    BossTileIndexDB.wait_table_delete(table_name, region_name, endpoint_url)
+
+
+  @staticmethod
+  def wait_table_delete(table_name, region_name=settings.REGION_NAME, endpoint_url=None):
+      """Poll dynamodb at a 2s interval until the table deletes."""
+      client = boto3.client('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
+      cnt = 0
+      while True:
+          time.sleep(2)
+          cnt += 1
+          if cnt > 50:
+              # Give up waiting.
+              return
+          try:
+              resp = client.describe_table(TableName=table_name)
+          except:
+              # Will get an exception once table is deleted.
+              return
 
   @staticmethod
   def getTableName():
