@@ -31,24 +31,26 @@ else:
 
 class Test_Upload_Bucket():
 
-  def setup_class(self):
+  @classmethod
+  def setup_class(cls):
     """Setup Parameters"""
     if 'S3_ENDPOINT' in dir(settings):
-      self.endpoint_url = settings.S3_ENDPOINT
+      cls.endpoint_url = settings.S3_ENDPOINT
     else:
-      self.endpoint_url = None
-    TileBucket.createBucket(endpoint_url=self.endpoint_url)
-    self.tile_bucket = TileBucket(nd_proj.project_name, endpoint_url=self.endpoint_url)
+      cls.endpoint_url = None
+    TileBucket.createBucket(endpoint_url=cls.endpoint_url)
+    cls.tile_bucket = TileBucket(nd_proj.project_name, endpoint_url=cls.endpoint_url)
 
 
-  def teardown_class(self):
+  @classmethod
+  def teardown_class(cls):
     """Teardown Parameters"""
 
     # Ensure bucket empty before deleting.
-    for objs in self.tile_bucket.getAllObjects():
-      self.tile_bucket.deleteObject(objs.key)
+    for objs in cls.tile_bucket.getAllObjects():
+      cls.tile_bucket.deleteObject(objs.key)
 
-    TileBucket.deleteBucket(endpoint_url=self.endpoint_url)
+    TileBucket.deleteBucket(endpoint_url=cls.endpoint_url)
 
 
   def test_put_object(self):
@@ -58,21 +60,31 @@ class Test_Upload_Bucket():
     y_tile = 0
     message_id = '1123'
     receipt_handle = 'test_string'
+    exp_metadata = {}
 
     for z_tile in range(0, 2, 1):
       # creating a tile handle for test
       tile_handle = BytesIO()
       # uploading object
-      response = self.tile_bucket.putObject(tile_handle, nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile, message_id, receipt_handle)
+      response = self.tile_bucket.putObject(
+          tile_handle, nd_proj.channel_name, nd_proj.resolution,
+          x_tile, y_tile, z_tile, message_id, receipt_handle)
       tile_handle.close()
-      object_key = self.tile_bucket.encodeObjectKey(nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile)
+      object_key = self.tile_bucket.encodeObjectKey(
+          nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile)
       # fetching object
-      object_body, object_message_id, object_receipt_handle = self.tile_bucket.getObject(nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile)
+      object_body, object_message_id, object_receipt_handle, metadata = self.tile_bucket.getObject(
+          nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile)
       assert( object_message_id == message_id )
       assert( object_receipt_handle == receipt_handle )
-      object_message_id, object_receipt_handle = self.tile_bucket.getMetadata(object_key)
+      assert( exp_metadata == metadata )
+
+      object_message_id, object_receipt_handle, object_metadata = self.tile_bucket.getMetadata(
+          object_key)
       assert( object_message_id == message_id )
       assert( object_receipt_handle == receipt_handle )
+      assert( exp_metadata == object_metadata )
+
       # delete the object
       response = self.tile_bucket.deleteObject(object_key)
 

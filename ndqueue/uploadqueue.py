@@ -93,7 +93,6 @@ class UploadQueue(NDQueue):
   @staticmethod
   def generateQueueName(nd_proj):
     """Generate the queue name based on project information"""
-    # TODO come up with new naming scheme.  Limited to 80 chars.
     return UploadQueue.getNameGenerator()(nd_proj)
 
   def sendMessage(self, tile_info):

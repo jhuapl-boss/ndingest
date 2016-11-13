@@ -20,32 +20,36 @@ sys.path.append('..')
 from ndingest.settings.settings import Settings
 settings = Settings.load()
 import json
+from random import randint
 from ndingest.ndqueue.uploadqueue import UploadQueue
 from ndingest.ndqueue.serializer import Serializer
 serializer = Serializer.load()
 from ndingest.ndingestproj.ingestproj import IngestProj
 ProjClass = IngestProj.load()
 if settings.PROJECT_NAME == 'Boss':
-    nd_proj = ProjClass('testCol', 'kasthuri11', 'image', 0, 123)
+    jobid = randint(100, 999)
+    nd_proj = ProjClass('testCol', 'kasthuri11', 'image', 0, jobid)
 else:
     nd_proj = ProjClass('kasthuri11', 'image', '0')
 
 
 class Test_UploadQueue():
 
-  def setup_class(self):
+  @classmethod
+  def setup_class(cls):
     """Setup the class"""
     if 'SQS_ENDPOINT' in dir(settings):
-      self.endpoint_url = settings.SQS_ENDPOINT
+      cls.endpoint_url = settings.SQS_ENDPOINT
     else:
-      self.endpoint_url = None
-    UploadQueue.createQueue(nd_proj, endpoint_url=self.endpoint_url)
-    self.upload_queue = UploadQueue(nd_proj, endpoint_url=self.endpoint_url)
+      cls.endpoint_url = None
+    UploadQueue.createQueue(nd_proj, endpoint_url=cls.endpoint_url)
+    cls.upload_queue = UploadQueue(nd_proj, endpoint_url=cls.endpoint_url)
 
 
-  def teardown_class(self):
+  @classmethod
+  def teardown_class(cls):
     """Teardown parameters"""
-    UploadQueue.deleteQueue(nd_proj, endpoint_url=self.endpoint_url)
+    UploadQueue.deleteQueue(nd_proj, endpoint_url=cls.endpoint_url)
 
   
   def test_Message(self):
