@@ -100,8 +100,25 @@ class IngestQueue(NDQueue):
     return super(IngestQueue, self).sendMessage(supercuboid_key)
 
 
+  def sendBatchMessages(self, supercuboid_keys, delay_seconds=0):
+    """Send up to 10 messages at once to the ingest queue.
+
+    Returned dict contains two keys: 'Successful' and 'Failed'.  Each key is
+    an array dicts with the common key: 'Id'.  The value associated with 'Id'
+    is the index into the original list of messages passed in.  Use this to
+    determine which messages were successfully enqueued vs failed.
+
+    Args:
+        supercuboid_keys (list): List of up to 10 message bodies.
+        delay_seconds (optional[int]): Optional delay for processing of messages.
+
+    Returns:
+        (dict): Contains keys 'Successful' and 'Failed'.
+    """
+    return super(IngestQueue, self).sendBatchMessages(supercuboid_keys, delay_seconds)
+
   def receiveMessage(self, number_of_messages=1):
-    """Receive a message from the upload queue"""
+    """Receive a message from the ingest queue"""
 
     message_list = super(IngestQueue, self).receiveMessage(number_of_messages=number_of_messages)
     if message_list is None:
@@ -112,5 +129,5 @@ class IngestQueue(NDQueue):
 
 
   def deleteMessage(self, message_id, receipt_handle, number_of_messages=1):
-    """Delete a message from the upload queue"""
+    """Delete a message from the ingest queue"""
     return super(IngestQueue, self).deleteMessage(message_id, receipt_handle, number_of_messages=1)

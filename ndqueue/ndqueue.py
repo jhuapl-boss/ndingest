@@ -322,8 +322,47 @@ class NDQueue(object):
     except Exception as e:
       print (e)
       raise
-  
-  
+
+
+  def sendBatchMessages(self, message_bodies, delay_seconds=0):
+      """Send up to 10 messages at once to the queue.
+
+      Returned dict contains two keys: 'Successful' and 'Failed'.  Each key is
+      an array dicts with the common key: 'Id'.  The value associated with 'Id'
+      is the index into the original list of messages passed in.  Use this to
+      determine which messages were successfully enqueued vs failed.
+
+      Args:
+          message_bodies (list): List of up to 10 message bodies.
+          delay_seconds (optional[int]): Optional delay for processing of messages.
+
+      Returns:
+        (dict): Contains keys 'Successful' and 'Failed'.
+      """
+      num_msgs = len(message_bodies)
+      if num_msgs > 10:
+          raise ValueError('Maximum 10 messages allowed, got {} messages'.format(
+              num_msgs))
+      elif num_msgs < 1:
+          raise ValueError('Got zero messages.')
+
+      batch = []
+      id = 0
+      for msg in message_bodies:
+          batch.append({
+              'Id': '{}'.format(id),
+              'MessageBody': msg,
+              'DelaySeconds': delay_seconds
+          })
+          id += 1
+
+      try:
+          return self.queue.send_messages(Entries=batch)
+      except Exception as e:
+          print (e)
+          raise
+
+
   def receiveMessage(self, number_of_messages=1):
     """Receive a message from the queue"""
     

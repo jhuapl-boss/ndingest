@@ -93,13 +93,35 @@ class CleanupQueue(NDQueue):
     """Generate the queue name based on project information"""
     return CleanupQueue.getNameGenerator()(nd_proj)
 
+
   def sendMessage(self, tile_info):
     """Send a message to upload queue"""
     return super(CleanupQueue, self).sendMessage(json.dumps(tile_info))
 
 
+  def sendBatchMessages(self, tile_infos, delay_seconds=0):
+    """Send up to 10 messages at once to the cleanup queue.
+
+    Returned dict contains two keys: 'Successful' and 'Failed'.  Each key is
+    an array dicts with the common key: 'Id'.  The value associated with 'Id'
+    is the index into the original list of messages passed in.  Use this to
+    determine which messages were successfully enqueued vs failed.
+
+    Args:
+        tile_infos (list[dict]): List of up to 10 message bodies (dicts).
+        delay_seconds (optional[int]): Optional delay for processing of messages.
+
+    Returns:
+        (dict): Contains keys 'Successful' and 'Failed'.
+    """
+    jsonized = []
+    for info in tile_infos:
+      jsonized.append(json.dumps(info))
+    return super(CleanupQueue, self).sendBatchMessages(jsonized, delay_seconds)
+
+
   def receiveMessage(self, number_of_messages=1):
-    """Receive a message from the upload queue"""
+    """Receive a message from the cleanup queue"""
     message_list = super(CleanupQueue, self).receiveMessage(number_of_messages=number_of_messages)
     if message_list is None:
       raise StopIteration
@@ -109,5 +131,5 @@ class CleanupQueue(NDQueue):
 
 
   def deleteMessage(self, message_id, receipt_handle, number_of_messages=1):
-    """Delete a message from the upload queue"""
+    """Delete a message from the cleanup queue"""
     return super(CleanupQueue, self).deleteMessage(message_id, receipt_handle, number_of_messages=number_of_messages)

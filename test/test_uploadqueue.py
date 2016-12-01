@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+import hashlib
 import sys
 sys.path.append('..')
 from ndingest.settings.settings import Settings
@@ -72,6 +73,33 @@ class Test_UploadQueue():
       response = self.upload_queue.deleteMessage(message_id, receipt_handle)
       # check if the message was sucessfully deleted
       assert('Successful' in response)
+
+
+  def test_sendBatchMessages(self):
+    fake_data0 = {'foo': 'bar'}
+    fake_data1 = {'john': 'doe'}
+    jsonized0 = json.dumps(fake_data0)
+    jsonized1 = json.dumps(fake_data1)
+    md5_0 = hashlib.md5(jsonized0.encode('utf-8')).hexdigest()
+    md5_1 = hashlib.md5(jsonized1.encode('utf-8')).hexdigest()
+
+    try:
+      response = self.upload_queue.sendBatchMessages([fake_data0, fake_data1], 0)
+      assert('Successful' in response)
+      success_ids = []
+      for msg_result in response['Successful']:
+        id = msg_result['Id']
+        success_ids.append(id)
+        if id == '0':
+          assert(md5_0 == msg_result['MD5OfMessageBody'])
+        elif id == '1':
+          assert(md5_1 == msg_result['MD5OfMessageBody'])
+
+      assert('0' in success_ids)
+      assert('1' in success_ids)
+    finally:
+      for message_id, receipt_handle, _ in self.upload_queue.receiveMessage():
+        self.upload_queue.deleteMessage(message_id, receipt_handle)
 
 
   def test_createPolicy(self):
