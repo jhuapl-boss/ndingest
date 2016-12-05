@@ -84,7 +84,7 @@ class Test_UploadQueue():
     md5_1 = hashlib.md5(jsonized1.encode('utf-8')).hexdigest()
 
     try:
-      response = self.upload_queue.sendBatchMessages([fake_data0, fake_data1], 0)
+      response = self.upload_queue.sendBatchMessages([jsonized0, jsonized1], 0)
       assert('Successful' in response)
       success_ids = []
       for msg_result in response['Successful']:

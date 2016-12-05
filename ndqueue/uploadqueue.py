@@ -97,7 +97,14 @@ class UploadQueue(NDQueue):
 
 
   def sendMessage(self, tile_info):
-    """Send a message to upload queue"""
+    """Send a message to upload queue.
+
+    Args:
+        tile_info (string): Message body.
+
+    Returns:
+        (dict): See https://boto3.readthedocs.io/en/latest/reference/services/sqs.html#SQS.Queue.send_message.
+    """
     return super(UploadQueue, self).sendMessage(tile_info)
 
 
@@ -110,16 +117,13 @@ class UploadQueue(NDQueue):
     determine which messages were successfully enqueued vs failed.
 
     Args:
-        tile_infos (list[dict]): List of up to 10 message bodies (dicts).
+        tile_infos (list[string]): List of up to 10 message bodies.
         delay_seconds (optional[int]): Optional delay for processing of messages.
 
     Returns:
         (dict): Contains keys 'Successful' and 'Failed'.
     """
-    jsonized = []
-    for info in tile_infos:
-      jsonized.append(json.dumps(info))
-    return super(UploadQueue, self).sendBatchMessages(jsonized, delay_seconds)
+    return super(UploadQueue, self).sendBatchMessages(tile_infos, delay_seconds)
 
   def receiveMessage(self, number_of_messages=1):
     """Receive a message from the upload queue"""
