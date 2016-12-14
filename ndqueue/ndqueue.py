@@ -30,7 +30,10 @@ class NDQueue(object):
     region_name (string): AWS region queue lives in.
     endpoint_url (string|None): Alternative URL boto3 should use for testing instead of connecting to AWS.
     queue_name (string): The friendly name of the queue.
+    test_mode (static bool): An alternate means of telling all queues that they are running in test mode.  When in test mode, they might add random elements to their names, for instance.
   """
+
+  test_mode = False
 
   def __init__(self, queue_name, region_name=settings.REGION_NAME, endpoint_url=None):
     """Create resource for the queue"""

@@ -40,7 +40,7 @@ class UploadQueue(NDQueue):
     
   @staticmethod 
   def generateBossQueueName(nd_proj):
-    if not settings.TEST_MODE:
+    if not settings.TEST_MODE and not NDQueue.test_mode:
         return '{}-upload-{}'.format(settings.DOMAIN, nd_proj.job_id)
 
     if UploadQueue.test_queue_id == -1:
