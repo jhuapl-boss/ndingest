@@ -335,6 +335,8 @@ class NDQueue(object):
         is the index into the original list of messages passed in.  Use this to
         determine which messages were successfully enqueued vs failed.
 
+        Will try to re-send failed messages up to 3 times
+
         Args:
             message_bodies (list): List of up to 10 message bodies.
             delay_seconds (optional[int]): Optional delay for processing of messages.
@@ -350,6 +352,7 @@ class NDQueue(object):
             raise ValueError('Got zero messages.')
 
         send_tries = 0
+        final_response = {'Successful': [], 'Failed': []}
         while send_tries < 3:
             # Try sending the batch of messages up to 3 times
             batch = []
@@ -361,25 +364,28 @@ class NDQueue(object):
                 })
 
             response = self.queue.send_messages(Entries=batch)
+            final_response['Successful'].extend(response['Successful'])
             send_tries += 1
-            batch = []
+            success = True
 
             if 'Failed' in response:
                 if len(response['Failed']) > 0:
+                    success = False
+                    final_response['Failed'] = response['Failed']
+                    print("BATCH SEND FAIL ON TRY: {}".format(send_tries))
+                    print(response)
                     # had a message failure
                     temp_message_bodies = []
                     for idx, failed_msg in enumerate(response['Failed']):
-                        batch.append({
-                            'Id': '{}'.format(idx),
-                            'MessageBody': message_bodies[int(response['Failed']['Id'])],
-                            'DelaySeconds': delay_seconds
-                        })
+                        print("SEND FAIL ID: {}".format(idx))
                         temp_message_bodies.append(message_bodies[int(response['Failed']['Id'])])
 
-            if not batch:
+                    message_bodies = temp_message_bodies
+
+            if success:
                 break
 
-        return response
+        return final_response
 
     def receiveMessage(self, number_of_messages=1):
         """Receive a message from the queue"""
