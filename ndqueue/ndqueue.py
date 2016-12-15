@@ -378,7 +378,7 @@ class NDQueue(object):
                     temp_message_bodies = []
                     for idx, failed_msg in enumerate(response['Failed']):
                         print("SEND FAIL ID: {}".format(idx))
-                        temp_message_bodies.append(message_bodies[int(response['Failed']['Id'])])
+                        temp_message_bodies.append(message_bodies[int(failed_msg['Id'])])
 
                     message_bodies = temp_message_bodies
 
