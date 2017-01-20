@@ -276,9 +276,18 @@ class TileBucket:
 
     def getMetadata(self, object_key):
         """Get the object key from the upload bucket"""
+        msg_id = None
+        rx_handle = None
+        metadata = None
 
-        _, message_id, receipt_handle, metadata = self.getObjectByKey(object_key)
-        return message_id, receipt_handle, metadata
+        s3_obj = self.s3.Object(self.bucket.name, object_key)
+        response = s3_obj.metadata
+        if response:
+            metadata = json.loads(response['metadata'])
+            msg_id = response['message_id']
+            rx_handle = response['receipt_handle']
+
+        return msg_id, rx_handle, metadata
 
     def deleteObject(self, object_key):
         """Delete object from the upload bucket"""
