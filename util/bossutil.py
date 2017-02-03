@@ -134,7 +134,7 @@ class BossUtil(Util):
                 {
                     "Sid": "ClientQueuePolicy",
                     "Effect": "Allow",
-                    "Action": ["sqs:ReceiveMessage"],
+                    "Action": ["sqs:ReceiveMessage", "sqs:GetQueueAttributes"],
                     "Resource": upload_queue.arn
                 },
                 {
