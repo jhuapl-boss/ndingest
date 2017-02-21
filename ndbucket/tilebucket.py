@@ -278,12 +278,13 @@ class TileBucket:
         """Get the object key from the upload bucket"""
         msg_id = None
         rx_handle = None
-        metadata = None
+        metadata = {}
 
         s3_obj = self.s3.Object(self.bucket.name, object_key)
         response = s3_obj.metadata
         if response:
-            metadata = json.loads(response['metadata'])
+            if 'metadata' in response:
+                metadata = json.loads(response['metadata'])
             msg_id = response['message_id']
             rx_handle = response['receipt_handle']
 
