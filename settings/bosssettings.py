@@ -68,18 +68,26 @@ class BossSettings(Settings):
   
     @property
     def S3_CUBOID_BUCKET(self):
+        if self._test_mode:
+            return 'test_{}'.format(self.parser.get('aws', 'cuboid_bucket'))
         return self.parser.get('aws', 'cuboid_bucket')
 
     @property
     def S3_TILE_BUCKET(self):
+        if self._test_mode:
+            return 'test_{}'.format(self.parser.get('aws', 'tile_bucket'))
         return self.parser.get('aws', 'tile_bucket')
 
     @property
     def DYNAMO_CUBOIDINDEX_TABLE(self):
+        if self._test_mode:
+            return 'test_{}'.format(self.parser.get('aws', 'cuboid_index_table'))
         return self.parser.get('aws', 'cuboid_index_table')
 
     @property
     def DYNAMO_TILEINDEX_TABLE(self):
+        if self._test_mode:
+            return 'test_{}'.format(self.parser.get('aws', 'tile_index_table'))
         return self.parser.get('aws', 'tile_index_table')
 
     @property
