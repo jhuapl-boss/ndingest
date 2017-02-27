@@ -61,7 +61,8 @@ class CleanupQueue(NDQueue):
         QueueName = queue_name,
         Attributes = {
           'DelaySeconds' : '0',
-          'MaximumMessageSize' : '262144'
+          'MaximumMessageSize' : '262144',
+          'MessageRetentionPeriod': '1209600'   # 14 days.
         }
       )
       return queue_name

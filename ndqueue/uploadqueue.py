@@ -63,7 +63,8 @@ class UploadQueue(NDQueue):
         Attributes = {
           'VisibilityTimeout': '120',
           'DelaySeconds': '0',
-          'MaximumMessageSize': '262144'
+          'MaximumMessageSize': '262144',
+          'MessageRetentionPeriod': '1209600'   # 14 days.
         }
       )
       return queue_name
