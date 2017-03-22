@@ -253,6 +253,9 @@ class TileBucket:
         Returns:
             (bytes, str, str, dict): the object body, upload task message id, upload task message receipt_handle, client supplied metadata dictionary
 
+        Raises:
+            (KeyError): when tile key not found in tile bucket.
+
         """
         try:
             s3_obj = self.s3.Object(self.bucket.name, tile_key)
@@ -262,6 +265,11 @@ class TileBucket:
             else:
                 metadata = {}
             return response['Body'].read(), response['Metadata']['message_id'], response['Metadata']['receipt_handle'], metadata
+        except botocore.exceptions.ClientError as ce:
+            error_code = ce.response['Error'].get('Code', 'Unknown')
+            if error_code == 'NoSuchKey':
+                raise KeyError('Tile bucket key: {} not found'.format(tile_key))
+            raise
         except Exception as e:
             print (e)
             raise

@@ -89,6 +89,15 @@ class Test_Upload_Bucket():
       response = self.tile_bucket.deleteObject(object_key)
 
 
+  def test_getObjectByKey_raises_KeyError(self):
+      """Test KeyError raised if key doesn't exist in S3."""
+      try:
+          self.tile_bucket.getObjectByKey('foo_key')
+      except KeyError:
+          return
+      assert(False)
+
+
   def test_buildArn_no_folder(self):
     """Test buildArn with folder's default value."""
 
