@@ -138,9 +138,15 @@ class BossTileIndexDB:
     encodes the number of tiles that comprises the cuboid in the case where
     there are less tiles than the normal size of a cuboid in the z direction.
 
+    Will raise if the chunk key already exists in the index.
+
     Args:
         chunk_key (string): Key used to store the entry for the cuboid.
         task_id (int): Task or job id that this cuboid belongs to.
+
+    Raises:
+        (botocore.exceptions.ClientError): ConditionalCheckFailedException if
+        chunk_key already exists.
     """
     try:
         response = self.table.put_item(
@@ -148,7 +154,8 @@ class BossTileIndexDB:
                 'chunk_key': chunk_key,
                 'tile_uploaded_map': {},
                 'task_id': task_id
-            })
+            },
+            ConditionExpression=Attr('chunk_key').not_exists())
     except botocore.exceptions.ClientError as e:
         print (e)
         raise

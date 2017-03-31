@@ -28,6 +28,7 @@ import six
 import unittest
 import warnings
 import time
+import botocore
 
 
 
@@ -173,6 +174,19 @@ class Test_BossTileIndexDB(unittest.TestCase):
         actual = list(self.tileindex_db.getTaskItems(3))
 
         six.assertCountEqual(self, expected, actual)
+
+
+    def test_createCuboidAlreadyExistsRaises(self):
+        """Raise an error if the chunk key already exists in the index."""
+        chunk_key = 'foo'
+        task_id = 9999999
+        self.tileindex_db.createCuboidEntry(chunk_key, task_id)
+
+        with self.assertRaises(botocore.exceptions.ClientError) as err:
+            self.tileindex_db.createCuboidEntry(chunk_key, task_id)
+            error_code = err.response['Error'].get('Code', 'Unknown')
+            self.assertEqual('ConditionalCheckFailedException', error_code)
+
 
 if __name__ == '__main__':
     unittest.main()
