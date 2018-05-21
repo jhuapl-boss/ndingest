@@ -60,8 +60,18 @@ class BossTileIndexDB:
 
     # creating the resource
     table_name = BossTileIndexDB.getTableName()
+    ttl_spec = None
     schema['TableName'] = table_name
-    dynamo = boto3.resource('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
+    # TTL isn't supported in boto's create_table(), currently.
+    if 'TimeToLiveSpecification' in schema:
+        ttl_spec = schema['TimeToLiveSpecification']
+        del schema['TimeToLiveSpecification']
+
+    #dynamo = boto3.resource('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
+    dynamo = boto3.client(
+        'dynamodb', region_name=region_name, endpoint_url=endpoint_url,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
 
     try:
       table = dynamo.create_table(**schema)
@@ -70,6 +80,9 @@ class BossTileIndexDB:
       raise
 
     BossTileIndexDB.wait_table_create(table_name, region_name, endpoint_url)
+    if ttl_spec is not None:
+        dynamo.update_time_to_live(
+            TableName=table_name, TimeToLiveSpecification=ttl_spec)
 
 
   @staticmethod
