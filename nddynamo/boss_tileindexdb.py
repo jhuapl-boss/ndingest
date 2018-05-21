@@ -23,12 +23,16 @@ from boto3.dynamodb.conditions import Key, Attr
 from operator import floordiv
 from ndingest.util.bossutil import BossUtil
 import time
+from datetime import datetime, timedelta, timezone
+
 #try:
 #    # Temp try-catch while developing on Windows.
 #    from spdb.c_lib.ndlib import XYZMorton
 #except Exception:
 #    pass
 
+# Expire tile entries after this many days.
+DAYS_TO_LIVE = 21
 
 class BossTileIndexDB:
 
@@ -149,11 +153,15 @@ class BossTileIndexDB:
         chunk_key already exists.
     """
     try:
+        now = datetime.fromtimestamp(time.time(), timezone.utc)
+        days = timedelta(days=DAYS_TO_LIVE)
+        expires = int((now + days).timestamp())
         response = self.table.put_item(
             Item = {
                 'chunk_key': chunk_key,
                 'tile_uploaded_map': {},
-                'task_id': task_id
+                'task_id': task_id,
+                'expires': expires
             },
             ConditionExpression=Attr('chunk_key').not_exists())
     except botocore.exceptions.ClientError as e:
@@ -242,7 +250,6 @@ class BossTileIndexDB:
           ConsistentRead = True,
           ReturnConsumedCapacity = 'INDEXES'
       )
-      # TODO write a yield function to pop one item at a time
       return response['Item'] if 'Item' in response else None
     except Exception as e:
       print (e)

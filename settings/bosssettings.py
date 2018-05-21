@@ -69,13 +69,13 @@ class BossSettings(Settings):
     @property
     def S3_CUBOID_BUCKET(self):
         if self._test_mode:
-            return 'test_{}'.format(self.parser.get('aws', 'cuboid_bucket'))
+            return 'test-{}'.format(self.parser.get('aws', 'cuboid_bucket'))
         return self.parser.get('aws', 'cuboid_bucket')
 
     @property
     def S3_TILE_BUCKET(self):
         if self._test_mode:
-            return 'test_{}'.format(self.parser.get('aws', 'tile_bucket'))
+            return 'test-{}'.format(self.parser.get('aws', 'tile_bucket'))
         return self.parser.get('aws', 'tile_bucket')
 
     @property

@@ -98,9 +98,10 @@ class Test_BossTileIndexDB(unittest.TestCase):
         chunk_key = '<hash>&{}&111&222&333&0&0&0&0&0'.format(num_tiles)
         task_id = 21
         self.tileindex_db.createCuboidEntry(chunk_key, task_id)
-        preDelResp = self.tileindex_db.getCuboid(chunk_key, task_id)
-        self.assertEqual(chunk_key, preDelResp['chunk_key'])
-        self.assertEqual({}, preDelResp['tile_uploaded_map'])
+        actual = self.tileindex_db.getCuboid(chunk_key, task_id)
+        self.assertEqual(chunk_key, actual['chunk_key'])
+        self.assertEqual({}, actual['tile_uploaded_map'])
+        self.assertIn('expires', actual)
 
 
     def test_markTileAsUploaded(self):
@@ -172,8 +173,14 @@ class Test_BossTileIndexDB(unittest.TestCase):
         ]
 
         actual = list(self.tileindex_db.getTaskItems(3))
+        filtered = [
+            {
+                'task_id': i['task_id'],
+                'tile_uploaded_map': i['tile_uploaded_map'],
+                'chunk_key': i['chunk_key']
+            } for i in actual]
 
-        six.assertCountEqual(self, expected, actual)
+        six.assertCountEqual(self, expected, filtered)
 
 
     def test_createCuboidAlreadyExistsRaises(self):
