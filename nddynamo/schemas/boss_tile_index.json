@@ -25,7 +25,7 @@
   ],
   "GlobalSecondaryIndexes": [
     {
-      "IndexName": "task_index",
+      "IndexName": "task_id_index",
       "KeySchema": [
         {
           "AttributeName": "appended_task_id",

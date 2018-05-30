@@ -35,6 +35,9 @@ from random import randrange
 # Expire tile entries after this many days.
 DAYS_TO_LIVE = 21
 
+# Name of global secondary index that indexes by appended_task_id.
+TASK_INDEX = 'task_id_index'
+
 class BossTileIndexDB:
 
   def __init__(self, project_name, region_name=settings.REGION_NAME, endpoint_url=None):
@@ -312,7 +315,7 @@ class BossTileIndexDB:
             (dict): Response dictionary.
         """
         args = {
-            'IndexName': 'task_index',
+            'IndexName': TASK_INDEX,
             'KeyConditionExpression': 'appended_task_id = :task_id',
             'ExpressionAttributeValues': { ':task_id': appended_task_id },
             'Limit': limit
