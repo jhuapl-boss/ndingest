@@ -24,6 +24,7 @@ from operator import floordiv
 from ndingest.util.bossutil import BossUtil
 import time
 from datetime import datetime, timedelta, timezone
+from random import randrange
 
 #try:
 #    # Temp try-catch while developing on Windows.
@@ -67,7 +68,6 @@ class BossTileIndexDB:
         ttl_spec = schema['TimeToLiveSpecification']
         del schema['TimeToLiveSpecification']
 
-    #dynamo = boto3.resource('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
     dynamo = boto3.client(
         'dynamodb', region_name=region_name, endpoint_url=endpoint_url,
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -169,11 +169,15 @@ class BossTileIndexDB:
         now = datetime.fromtimestamp(time.time(), timezone.utc)
         days = timedelta(days=DAYS_TO_LIVE)
         expires = int((now + days).timestamp())
+        # Append random number to task_id to avoid a hot partition when
+        # writing to the GSI.
+        appended_task_id = '{}_{}'.format(task_id, randrange(settings.MAX_TASK_ID_SUFFIX))
         response = self.table.put_item(
             Item = {
                 'chunk_key': chunk_key,
                 'tile_uploaded_map': {},
                 'task_id': task_id,
+                'appended_task_id': appended_task_id,
                 'expires': expires
             },
             ConditionExpression=Attr('chunk_key').not_exists())
@@ -269,29 +273,53 @@ class BossTileIndexDB:
       raise
 
 
-  def getTaskItems(self, task_id):
-    """Get all the cuboid entries for a given task from the table.
+  def getTaskItems(self, task_id, limit=200):
+      """Get all the cuboid entries for a given task from the table.
 
-    Args:
-        task_id (int): Id of upload task/job.
+      Args:
+          task_id (int): Id of upload task/job.
+          limit (optional[int]): Max number of items to read in a single query.
 
-    Returns:
-        (generator): Dictionary with keys: 'chunk_key', 'task_id', 'tile_uploaded_map'.
-    """
+      Returns:
+          (generator): Dictionary with keys: 'chunk_key', 'task_id', 'tile_uploaded_map'.
+      """
 
-    try:
-      response = self.table.query(
-          IndexName = 'task_index',
-          KeyConditionExpression = 'task_id = :task_id',
-          ExpressionAttributeValues = {
-            ':task_id' : task_id
-          }
-      )
-      for item in response['Items']:
-        yield item
-    except Exception as e:
-      print (e)
-      raise
+      try:
+          for i in range(settings.MAX_TASK_ID_SUFFIX):
+              appended_task_id = '{}_{}'.format(task_id, i)
+              exclusive_start_key = None
+              while True:
+                  response = self._query(appended_task_id, exclusive_start_key, limit)
+                  for item in response['Items']:
+                      yield item
+                  if 'LastEvaluatedKey' not in response:
+                      break
+                  exclusive_start_key = response['LastEvaluatedKey']
+      except Exception as e:
+          print(e)
+          raise
+
+
+  def _query(self, appended_task_id, exclusive_start_key, limit):
+        """Query the GSI for chunks associated with the given task id.
+
+        Args:
+            appended_task_id (str): Id of upload task/job with a sequence number appended.
+            exclusive_start_key (dict|None): Where to start the next query.
+          limit (int): Max number of items to read in a single query.
+
+        Returns:
+            (dict): Response dictionary.
+        """
+        args = {
+            'IndexName': 'task_index',
+            'KeyConditionExpression': 'appended_task_id = :task_id',
+            'ExpressionAttributeValues': { ':task_id': appended_task_id },
+            'Limit': limit
+        }
+        if exclusive_start_key is not None:
+            args['ExclusiveStartKey'] = exclusive_start_key
+        return self.table.query(**args)
 
 
   def deleteCuboid(self, chunk_key, task_id):
