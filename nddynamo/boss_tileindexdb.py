@@ -38,6 +38,10 @@ DAYS_TO_LIVE = 21
 # Name of global secondary index that indexes by appended_task_id.
 TASK_INDEX = 'task_id_index'
 
+# Make this more easily accessible by importers.
+# Task id suffix must be >= 0 and < than this value.
+MAX_TASK_ID_SUFFIX = settings.MAX_TASK_ID_SUFFIX
+
 class BossTileIndexDB:
 
   def __init__(self, project_name, region_name=settings.REGION_NAME, endpoint_url=None):
@@ -48,6 +52,27 @@ class BossTileIndexDB:
 
     self.table = dynamo.Table(table_name)
     self.project_name = project_name
+
+  @staticmethod
+  def generate_appended_task_id(task_id, n):
+    """Generate an appended_task_id for the tile index table.
+    
+    Combine task_id with the given int to form a value suitable for the
+    appended_task_id attribute of the tile index table.
+
+    Args:
+        task_id (int): Ingest job id.
+        n (int): MAX_TASK_ID_SUFFIX > n >= 0
+
+    Returns:
+        (str)
+
+    Raises:
+        (ValueError): If n not in the proper range.
+    """
+    if n < 0 or n >= MAX_TASK_ID_SUFFIX:
+        raise ValueError('Got n={}, must be >= 0 and < {}'.format(n, MAX_TASK_ID_SUFFIX))
+    return '{}_{}'.format(task_id, n)
 
   @staticmethod
   def createTable(schema, region_name=settings.REGION_NAME, endpoint_url=None):
@@ -174,7 +199,8 @@ class BossTileIndexDB:
         expires = int((now + days).timestamp())
         # Append random number to task_id to avoid a hot partition when
         # writing to the GSI.
-        appended_task_id = '{}_{}'.format(task_id, randrange(settings.MAX_TASK_ID_SUFFIX))
+        appended_task_id = BossTileIndexDB.generate_appended_task_id(
+            task_id, randrange(MAX_TASK_ID_SUFFIX))
         response = self.table.put_item(
             Item = {
                 'chunk_key': chunk_key,
@@ -288,8 +314,8 @@ class BossTileIndexDB:
       """
 
       try:
-          for i in range(settings.MAX_TASK_ID_SUFFIX):
-              appended_task_id = '{}_{}'.format(task_id, i)
+          for i in range(MAX_TASK_ID_SUFFIX):
+              appended_task_id = BossTileIndexDB.generate_appended_task_id(task_id, i)
               exclusive_start_key = None
               while True:
                   response = self._query(appended_task_id, exclusive_start_key, limit)
