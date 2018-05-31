@@ -17,14 +17,18 @@
     {
       "AttributeName": "task_id",
       "AttributeType": "N"
+    },
+    {
+      "AttributeName": "appended_task_id",
+      "AttributeType": "S"
     }
   ],
   "GlobalSecondaryIndexes": [
     {
-      "IndexName": "task_index",
+      "IndexName": "task_id_index",
       "KeySchema": [
         {
-          "AttributeName": "task_id",
+          "AttributeName": "appended_task_id",
           "KeyType": "HASH"
         }
       ],
@@ -40,5 +44,9 @@
   "ProvisionedThroughput": {
     "ReadCapacityUnits": 10,
     "WriteCapacityUnits": 10
+  },
+  "TimeToLiveSpecification": {
+    "AttributeName": "expires",
+    "Enabled": true
   }
 }

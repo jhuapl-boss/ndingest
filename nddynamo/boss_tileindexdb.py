@@ -23,12 +23,20 @@ from boto3.dynamodb.conditions import Key, Attr
 from operator import floordiv
 from ndingest.util.bossutil import BossUtil
 import time
+from datetime import datetime, timedelta, timezone
+from random import randrange
+
 #try:
 #    # Temp try-catch while developing on Windows.
 #    from spdb.c_lib.ndlib import XYZMorton
 #except Exception:
 #    pass
 
+# Expire tile entries after this many days.
+DAYS_TO_LIVE = 21
+
+# Name of global secondary index that indexes by appended_task_id.
+TASK_INDEX = 'task_id_index'
 
 class BossTileIndexDB:
 
@@ -56,8 +64,17 @@ class BossTileIndexDB:
 
     # creating the resource
     table_name = BossTileIndexDB.getTableName()
+    ttl_spec = None
     schema['TableName'] = table_name
-    dynamo = boto3.resource('dynamodb', region_name=region_name, endpoint_url=endpoint_url, aws_access_key_id=settings.AWS_ACCESS_KEY_ID, aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
+    # TTL isn't supported in boto's create_table(), currently.
+    if 'TimeToLiveSpecification' in schema:
+        ttl_spec = schema['TimeToLiveSpecification']
+        del schema['TimeToLiveSpecification']
+
+    dynamo = boto3.client(
+        'dynamodb', region_name=region_name, endpoint_url=endpoint_url,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
 
     try:
       table = dynamo.create_table(**schema)
@@ -66,6 +83,9 @@ class BossTileIndexDB:
       raise
 
     BossTileIndexDB.wait_table_create(table_name, region_name, endpoint_url)
+    if ttl_spec is not None:
+        dynamo.update_time_to_live(
+            TableName=table_name, TimeToLiveSpecification=ttl_spec)
 
 
   @staticmethod
@@ -149,11 +169,19 @@ class BossTileIndexDB:
         chunk_key already exists.
     """
     try:
+        now = datetime.fromtimestamp(time.time(), timezone.utc)
+        days = timedelta(days=DAYS_TO_LIVE)
+        expires = int((now + days).timestamp())
+        # Append random number to task_id to avoid a hot partition when
+        # writing to the GSI.
+        appended_task_id = '{}_{}'.format(task_id, randrange(settings.MAX_TASK_ID_SUFFIX))
         response = self.table.put_item(
             Item = {
                 'chunk_key': chunk_key,
                 'tile_uploaded_map': {},
-                'task_id': task_id
+                'task_id': task_id,
+                'appended_task_id': appended_task_id,
+                'expires': expires
             },
             ConditionExpression=Attr('chunk_key').not_exists())
     except botocore.exceptions.ClientError as e:
@@ -242,36 +270,59 @@ class BossTileIndexDB:
           ConsistentRead = True,
           ReturnConsumedCapacity = 'INDEXES'
       )
-      # TODO write a yield function to pop one item at a time
       return response['Item'] if 'Item' in response else None
     except Exception as e:
       print (e)
       raise
 
 
-  def getTaskItems(self, task_id):
-    """Get all the cuboid entries for a given task from the table.
+  def getTaskItems(self, task_id, limit=200):
+      """Get all the cuboid entries for a given task from the table.
 
-    Args:
-        task_id (int): Id of upload task/job.
+      Args:
+          task_id (int): Id of upload task/job.
+          limit (optional[int]): Max number of items to read in a single query.
 
-    Returns:
-        (generator): Dictionary with keys: 'chunk_key', 'task_id', 'tile_uploaded_map'.
-    """
+      Returns:
+          (generator): Dictionary with keys: 'chunk_key', 'task_id', 'tile_uploaded_map'.
+      """
 
-    try:
-      response = self.table.query(
-          IndexName = 'task_index',
-          KeyConditionExpression = 'task_id = :task_id',
-          ExpressionAttributeValues = {
-            ':task_id' : task_id
-          }
-      )
-      for item in response['Items']:
-        yield item
-    except Exception as e:
-      print (e)
-      raise
+      try:
+          for i in range(settings.MAX_TASK_ID_SUFFIX):
+              appended_task_id = '{}_{}'.format(task_id, i)
+              exclusive_start_key = None
+              while True:
+                  response = self._query(appended_task_id, exclusive_start_key, limit)
+                  for item in response['Items']:
+                      yield item
+                  if 'LastEvaluatedKey' not in response:
+                      break
+                  exclusive_start_key = response['LastEvaluatedKey']
+      except Exception as e:
+          print(e)
+          raise
+
+
+  def _query(self, appended_task_id, exclusive_start_key, limit):
+        """Query the GSI for chunks associated with the given task id.
+
+        Args:
+            appended_task_id (str): Id of upload task/job with a sequence number appended.
+            exclusive_start_key (dict|None): Where to start the next query.
+          limit (int): Max number of items to read in a single query.
+
+        Returns:
+            (dict): Response dictionary.
+        """
+        args = {
+            'IndexName': TASK_INDEX,
+            'KeyConditionExpression': 'appended_task_id = :task_id',
+            'ExpressionAttributeValues': { ':task_id': appended_task_id },
+            'Limit': limit
+        }
+        if exclusive_start_key is not None:
+            args['ExclusiveStartKey'] = exclusive_start_key
+        return self.table.query(**args)
 
 
   def deleteCuboid(self, chunk_key, task_id):

@@ -69,13 +69,13 @@ class BossSettings(Settings):
     @property
     def S3_CUBOID_BUCKET(self):
         if self._test_mode:
-            return 'test_{}'.format(self.parser.get('aws', 'cuboid_bucket'))
+            return 'test-{}'.format(self.parser.get('aws', 'cuboid_bucket'))
         return self.parser.get('aws', 'cuboid_bucket')
 
     @property
     def S3_TILE_BUCKET(self):
         if self._test_mode:
-            return 'test_{}'.format(self.parser.get('aws', 'tile_bucket'))
+            return 'test-{}'.format(self.parser.get('aws', 'tile_bucket'))
         return self.parser.get('aws', 'tile_bucket')
 
     @property
@@ -89,6 +89,10 @@ class BossSettings(Settings):
         if self._test_mode:
             return 'test_{}'.format(self.parser.get('aws', 'tile_index_table'))
         return self.parser.get('aws', 'tile_index_table')
+
+    @property
+    def MAX_TASK_ID_SUFFIX(self):
+        return int(self.parser.get('aws', 'max_task_id_suffix'))
 
     @property
     def UPLOAD_TASK_QUEUE(self):
