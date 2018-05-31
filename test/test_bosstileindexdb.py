@@ -102,6 +102,8 @@ class Test_BossTileIndexDB(unittest.TestCase):
         self.assertEqual(chunk_key, actual['chunk_key'])
         self.assertEqual({}, actual['tile_uploaded_map'])
         self.assertIn('expires', actual)
+        self.assertEqual(task_id, actual['task_id'])
+        self.assertTrue(actual['appended_task_id'].startswith('{}_'.format(task_id)))
 
 
     def test_markTileAsUploaded(self):
@@ -173,6 +175,41 @@ class Test_BossTileIndexDB(unittest.TestCase):
         ]
 
         actual = list(self.tileindex_db.getTaskItems(3))
+        filtered = [
+            {
+                'task_id': i['task_id'],
+                'tile_uploaded_map': i['tile_uploaded_map'],
+                'chunk_key': i['chunk_key']
+            } for i in actual]
+
+        six.assertCountEqual(self, expected, filtered)
+
+
+    def test_getTaskItems_force_multiple_queries(self):
+        num_tiles = settings.SUPER_CUBOID_SIZE[2]
+        job=3
+        chunk_key1 = '<hash>&{}&111&222&333&0&0&0&z&t'.format(num_tiles)
+        self.tileindex_db.createCuboidEntry(chunk_key1, task_id=job)
+
+        chunk_key2 = '<hash>&{}&111&222&333&0&1&0&z&t'.format(num_tiles)
+        self.tileindex_db.createCuboidEntry(chunk_key2, task_id=job)
+
+        chunk_key3 = '<hash>&{}&111&222&333&0&2&0&z&t'.format(num_tiles)
+        self.tileindex_db.createCuboidEntry(chunk_key3, task_id=job)
+
+        # Cuboid for a different upload job.
+        chunk_key4 = '<hash>&{}&555&666&777&0&0&0&z&t'.format(num_tiles)
+        self.tileindex_db.createCuboidEntry(chunk_key4, task_id=5)
+
+        expected = [ 
+            {'task_id': job, 'tile_uploaded_map': {}, 'chunk_key': chunk_key1},
+            {'task_id': job, 'tile_uploaded_map': {}, 'chunk_key': chunk_key2},
+            {'task_id': job, 'tile_uploaded_map': {}, 'chunk_key': chunk_key3}
+        ]
+
+        # Limit only 1 read per query so multiple queries required.
+        query_limit = 1
+        actual = list(self.tileindex_db.getTaskItems(job, query_limit))
         filtered = [
             {
                 'task_id': i['task_id'],

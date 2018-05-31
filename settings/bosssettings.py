@@ -91,6 +91,10 @@ class BossSettings(Settings):
         return self.parser.get('aws', 'tile_index_table')
 
     @property
+    def MAX_TASK_ID_SUFFIX(self):
+        return int(self.parser.get('aws', 'max_task_id_suffix'))
+
+    @property
     def UPLOAD_TASK_QUEUE(self):
         return self.parser.get('aws', 'upload_task_queue_url')
 
