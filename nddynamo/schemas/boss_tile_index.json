@@ -23,7 +23,24 @@
       "AttributeType": "S"
     }
   ],
-
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "task_id_index",
+      "KeySchema": [
+        {
+          "AttributeName": "appended_task_id",
+          "KeyType": "HASH"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "ALL"
+      },
+      "ProvisionedThroughput": {
+        "ReadCapacityUnits": 10,
+        "WriteCapacityUnits": 10
+      }
+    }
+  ],
   "ProvisionedThroughput": {
     "ReadCapacityUnits": 10,
     "WriteCapacityUnits": 10
