@@ -99,7 +99,7 @@ class BossUtil(Util):
 
     @staticmethod
     def generate_ingest_policy(
-        job_id, upload_queue, tile_bucket, 
+        job_id, upload_queue, bucket_name, 
         region_name=settings.REGION_NAME, endpoint_url=None, description='', ingest_type=TILE_INGEST):
         """Generate the combined IAM policy.
        
@@ -108,7 +108,7 @@ class BossUtil(Util):
         Args:
             job_id (int): Id of ingest job.
             upload_queue (UploadQueue):
-            tile_bucket (TileBucket):
+            bucket_name (str): Name of bucket ingest client will upload to.
             region_name (optional[str]): AWS region.
             endpoint_url (optional[str|None]): Alternative URL boto3 should use for testing instead of connecting to AWS.
             description (optional[str]): Policy description.
@@ -155,7 +155,7 @@ class BossUtil(Util):
                     "Sid": "ClientTileBucketPolicy",
                     "Effect": "Allow",
                     "Action": ["s3:PutObject"],
-                    "Resource": TileBucket.buildArn(tile_bucket.bucket.name)
+                    "Resource": TileBucket.buildArn(bucket_name)
                 }
                 ]
         }
