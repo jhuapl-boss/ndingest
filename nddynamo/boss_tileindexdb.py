@@ -56,7 +56,7 @@ class BossTileIndexDB:
   @staticmethod
   def generate_appended_task_id(task_id, n):
     """Generate an appended_task_id for the tile index table.
-    
+
     Combine task_id with the given int to form a value suitable for the
     appended_task_id attribute of the tile index table.
 
@@ -252,6 +252,9 @@ class BossTileIndexDB:
       )
       return self.cuboidReady(chunk_key, response['Attributes']['tile_uploaded_map'])
     except botocore.exceptions.ClientError as e:
+      if e.response['Error']['Code'] == 'ValidationException':
+        print('Chunk must have been deleted, aborting.')
+        return False
       print (e)
       raise
 
