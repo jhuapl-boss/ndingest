@@ -16,7 +16,6 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import boto3
-import botocore
 import random
 from ndingest.settings.settings import Settings
 from ndingest.ndqueue.ndqueue import NDQueue
@@ -40,17 +39,17 @@ class TileErrorQueue(NDQueue):
 
     @staticmethod
     def generateNeurodataQueueName(nd_proj):
-        return '-'.join(nd_proj.generateProjectInfo() + ['INSERT']).replace('&', '-')
+        return '-'.join(nd_proj.generateProjectInfo() + ['ERROR']).replace('&', '-')
 
     @staticmethod
     def generateBossQueueName(nd_proj):
         if not settings.TEST_MODE and not NDQueue.test_mode:
-            return '{}-ingest-{}'.format(settings.DOMAIN, nd_proj.job_id)
+            return '{}-{}-error'.format(settings.DOMAIN, nd_proj.job_id)
 
         if TileErrorQueue.test_queue_id == -1:
             TileErrorQueue.test_queue_id = random.randint(0, 999)
 
-        return 'test{}-{}-ingest-{}'.format(TileErrorQueue.test_queue_id, settings.DOMAIN, nd_proj.job_id)
+        return 'test{}-{}-{}-error'.format(TileErrorQueue.test_queue_id, settings.DOMAIN, nd_proj.job_id)
 
     @staticmethod
     def createQueue(nd_proj, region_name=settings.REGION_NAME, endpoint_url=None):
@@ -64,7 +63,7 @@ class TileErrorQueue(NDQueue):
 
         try:
             # creating the queue, if the queue already exists catch exception
-            response = sqs.create_queue(
+            sqs.create_queue(
                 QueueName=queue_name,
                 Attributes={
                     'VisibilityTimeout': '120',

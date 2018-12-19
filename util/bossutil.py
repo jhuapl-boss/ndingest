@@ -99,7 +99,7 @@ class BossUtil(Util):
 
     @staticmethod
     def generate_ingest_policy(
-        job_id, upload_queue, bucket_name, 
+        job_id, upload_queue, tile_index_queue, bucket_name, 
         region_name=settings.REGION_NAME, endpoint_url=None, description='', ingest_type=TILE_INGEST):
         """Generate the combined IAM policy.
        
@@ -108,6 +108,7 @@ class BossUtil(Util):
         Args:
             job_id (int): Id of ingest job.
             upload_queue (UploadQueue):
+            tile_index_queue (TileIndexQueue|None):
             bucket_name (str): Name of bucket ingest client will upload to.
             region_name (optional[str]): AWS region.
             endpoint_url (optional[str|None]): Alternative URL boto3 should use for testing instead of connecting to AWS.
@@ -134,21 +135,16 @@ class BossUtil(Util):
             policy_name = TEST_INGEST_POLICY_NAME.format(
                 settings.DOMAIN, BossUtil.test_policy_id, job_id)
 
-        if ingest_type == TILE_INGEST:
-            sqs_actions = ["sqs:ReceiveMessage", "sqs:GetQueueAttributes"]
-        elif ingest_type == VOLUMETRIC_INGEST:
-            sqs_actions = ["sqs:DeleteMessage", "sqs:ReceiveMessage", "sqs:GetQueueAttributes"]
-        else:
-            raise ValueError('Got unknown ingest_type value: {}'.format(ingest_type))
+        sqs_upload_actions = ["sqs:DeleteMessage", "sqs:ReceiveMessage", "sqs:GetQueueAttributes"]
 
         policy = {
             "Version": "2012-10-17",
             "Id": policy_name,
             "Statement": [
                 {
-                    "Sid": "ClientQueuePolicy",
+                    "Sid": "ClientUploadQueuePolicy",
                     "Effect": "Allow",
-                    "Action": sqs_actions,
+                    "Action": sqs_upload_actions,
                     "Resource": upload_queue.arn
                 },
                 {
@@ -157,8 +153,22 @@ class BossUtil(Util):
                     "Action": ["s3:PutObject"],
                     "Resource": TileBucket.buildArn(bucket_name)
                 }
-                ]
+            ]
         }
+
+        if ingest_type == TILE_INGEST:
+            sqs_index_actions = ["sqs:SendMessage"]
+            policy['Statement'].append(
+                {
+                    "Sid": "ClientIndexQueuePolicy",
+                    "Effect": "Allow",
+                    "Action": sqs_index_actions,
+                    "Resource": tile_index_queue.arn
+                })
+        elif ingest_type == VOLUMETRIC_INGEST:
+            pass
+        else:
+            raise ValueError('Got unknown ingest_type value: {}'.format(ingest_type))
 
         return iam.create_policy(
             PolicyName=policy['Id'],
