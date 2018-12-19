@@ -418,7 +418,8 @@ class NDQueue(object):
             )
             # TODO KL Better handling for 400 aka when delete fails
             if 'Failed' in response:
-                print (response['Failed']['Message'])
+                for msg in response['Failed']:
+                    print ('Delete failed: id: {}, code: {} - {}'.format(msg['Id'], msg['Code'], msg['Message']))
                 raise
             else:
                 return response
