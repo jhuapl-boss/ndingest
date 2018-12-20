@@ -53,7 +53,7 @@ class TileErrorQueue(NDQueue):
 
     @staticmethod
     def createQueue(nd_proj, region_name=settings.REGION_NAME, endpoint_url=None):
-        """Create the upload queue"""
+        """Create the tile error queue"""
 
         # creating the resource
         queue_name = TileErrorQueue.generateQueueName(nd_proj)
@@ -99,12 +99,12 @@ class TileErrorQueue(NDQueue):
         """Generate the queue name based on project information"""
         return TileErrorQueue.getNameGenerator()(nd_proj)
 
-    def sendMessage(self, supercuboid_key):
-        """Send a message to upload queue"""
-        return super(TileErrorQueue, self).sendMessage(supercuboid_key)
+    def sendMessage(self, msg):
+        """Send a message to tile error queue"""
+        return super(TileErrorQueue, self).sendMessage(msg)
 
-    def sendBatchMessages(self, supercuboid_keys, delay_seconds=0):
-        """Send up to 10 messages at once to the ingest queue.
+    def sendBatchMessages(self, msgs, delay_seconds=0):
+        """Send up to 10 messages at once to the tile error queue.
 
         Returned dict contains two keys: 'Successful' and 'Failed'.  Each key is
         an array dicts with the common key: 'Id'.  The value associated with 'Id'
@@ -112,16 +112,16 @@ class TileErrorQueue(NDQueue):
         determine which messages were successfully enqueued vs failed.
 
         Args:
-            supercuboid_keys (list): List of up to 10 message bodies.
+            msgs (list): List of up to 10 message bodies.
             delay_seconds (optional[int]): Optional delay for processing of messages.
 
         Returns:
             (dict): Contains keys 'Successful' and 'Failed'.
         """
-        return super(TileErrorQueue, self).sendBatchMessages(supercuboid_keys, delay_seconds)
+        return super(TileErrorQueue, self).sendBatchMessages(msgs, delay_seconds)
 
     def receiveMessage(self, number_of_messages=1):
-        """Receive a message from the ingest queue"""
+        """Receive a message from the tile error queue"""
 
         message_list = super(TileErrorQueue, self).receiveMessage(number_of_messages=number_of_messages)
         if message_list is None:
@@ -131,5 +131,5 @@ class TileErrorQueue(NDQueue):
                 yield message.message_id, message.receipt_handle, message.body
 
     def deleteMessage(self, message_id, receipt_handle, number_of_messages=1):
-        """Delete a message from the ingest queue"""
+        """Delete a message from the tile error queue"""
         return super(TileErrorQueue, self).deleteMessage(message_id, receipt_handle, number_of_messages=1)

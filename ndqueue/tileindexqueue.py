@@ -94,13 +94,13 @@ class TileIndexQueue(NDQueue):
     return TileIndexQueue.getNameGenerator()(nd_proj)
   
   
-  def sendMessage(self, supercuboid_key):
-    """Send a message to upload queue"""
-    return super(TileIndexQueue, self).sendMessage(supercuboid_key)
+  def sendMessage(self, msg):
+    """Send a message to tile index queue"""
+    return super(TileIndexQueue, self).sendMessage(msg)
 
 
-  def sendBatchMessages(self, supercuboid_keys, delay_seconds=0):
-    """Send up to 10 messages at once to the ingest queue.
+  def sendBatchMessages(self, msgs, delay_seconds=0):
+    """Send up to 10 messages at once to the tile index queue.
 
     Returned dict contains two keys: 'Successful' and 'Failed'.  Each key is
     an array dicts with the common key: 'Id'.  The value associated with 'Id'
@@ -108,16 +108,16 @@ class TileIndexQueue(NDQueue):
     determine which messages were successfully enqueued vs failed.
 
     Args:
-        supercuboid_keys (list): List of up to 10 message bodies.
+        msgs (list): List of up to 10 message bodies.
         delay_seconds (optional[int]): Optional delay for processing of messages.
 
     Returns:
         (dict): Contains keys 'Successful' and 'Failed'.
     """
-    return super(TileIndexQueue, self).sendBatchMessages(supercuboid_keys, delay_seconds)
+    return super(TileIndexQueue, self).sendBatchMessages(msgs, delay_seconds)
 
   def receiveMessage(self, number_of_messages=1):
-    """Receive a message from the ingest queue"""
+    """Receive a message from the tile index queue"""
 
     message_list = super(TileIndexQueue, self).receiveMessage(number_of_messages=number_of_messages)
     if message_list is None:
@@ -128,6 +128,6 @@ class TileIndexQueue(NDQueue):
 
 
   def deleteMessage(self, message_id, receipt_handle, number_of_messages=1):
-    """Delete a message from the ingest queue"""
+    """Delete a message from the tile index queue"""
     return super(TileIndexQueue, self).deleteMessage(message_id, receipt_handle, number_of_messages=1)
 
