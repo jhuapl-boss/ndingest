@@ -21,6 +21,10 @@ from ndingest.ndqueue.ndqueue import NDQueue
 import random
 
 class TileIndexQueue(NDQueue):
+  """
+  Queue for storing tiles to be added to the tile index by the tile uploaded
+  lambda.
+  """
 
   # Static variable to hold random number added to test queue names.
   test_queue_id = -1
@@ -47,7 +51,7 @@ class TileIndexQueue(NDQueue):
 
   @staticmethod
   def createQueue(nd_proj, region_name=settings.REGION_NAME, endpoint_url=None):
-    """Create the upload queue"""
+    """Create the tile index queue"""
     
     # creating the resource
     queue_name = TileIndexQueue.generateQueueName(nd_proj)
@@ -58,16 +62,20 @@ class TileIndexQueue(NDQueue):
       sqs.create_queue(
         QueueName=queue_name,
         Attributes={
-          'VisibilityTimeout': '120',
+          'VisibilityTimeout': '15',
           'DelaySeconds': '0',
           'MaximumMessageSize': '262144',
           'MessageRetentionPeriod': '1209600'   # 14 days.
         }
       )
-      return queue_name
     except Exception as e:
       print (e)
       raise
+
+    queue = TileIndexQueue(nd_proj, region_name, endpoint_url)
+    queue.addDeadLetterQueue(3)
+
+    return queue_name
 
 
   @staticmethod  
