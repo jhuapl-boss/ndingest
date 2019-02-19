@@ -16,6 +16,7 @@ import unittest
 from ndingest.util.bossutil import BossUtil, TILE_INGEST, VOLUMETRIC_INGEST
 from ndingest.ndbucket.tilebucket import TileBucket
 from ndingest.ndqueue.uploadqueue import UploadQueue
+from ndingest.ndqueue.tileindexqueue import TileIndexQueue
 from ndingest.ndingestproj.bossingestproj import BossIngestProj
 from ndingest.settings.settings import Settings
 settings = Settings.load()
@@ -36,6 +37,9 @@ class TestBossUtil(unittest.TestCase):
         UploadQueue.createQueue(cls.nd_proj)
         cls.upload_queue = UploadQueue(cls.nd_proj)
 
+        TileIndexQueue.createQueue(cls.nd_proj)
+        cls.tile_index_queue = TileIndexQueue(cls.nd_proj)
+
     @classmethod
     def tearDownClass(cls):
         UploadQueue.deleteQueue(cls.nd_proj)
@@ -43,30 +47,37 @@ class TestBossUtil(unittest.TestCase):
 
     def test_create_ingest_policy_tile(self):
         policy = BossUtil.generate_ingest_policy(
-            self.job_id, self.upload_queue, self.tile_bucket, ingest_type=TILE_INGEST)
+            self.job_id, self.upload_queue, self.tile_index_queue, self.tile_bucket.bucket.name, ingest_type=TILE_INGEST)
         try:
             self.assertEqual(settings.IAM_POLICY_PATH, policy.path)
             self.assertIsNotNone(policy.default_version)
             statements = policy.default_version.document['Statement']
+            self.assertEqual(3, len(statements))
             for stmt in statements:
-                if stmt['Sid'] == 'ClientQueuePolicy':
-                    self.assertCountEqual(["sqs:ReceiveMessage", "sqs:GetQueueAttributes"], stmt['Action'])
+                if stmt['Sid'] == 'ClientUploadQueuePolicy':
+                    self.assertCountEqual(["sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:DeleteMessage"],
+                        stmt['Action'])
                     self.assertEqual(self.upload_queue.arn, stmt['Resource'])
                 elif stmt['Sid'] == 'ClientTileBucketPolicy':
                     self.assertCountEqual(["s3:PutObject"], stmt['Action'])
                     self.assertEqual(TileBucket.buildArn(self.tile_bucket.bucket.name), stmt['Resource'])
+                elif stmt['Sid'] == 'ClientIndexQueuePolicy':
+                    self.assertCountEqual(["sqs:SendMessage"],
+                        stmt['Action'])
+                    self.assertEqual(self.tile_index_queue.arn, stmt['Resource'])
         finally:
             policy.delete()
 
     def test_create_ingest_policy_volumetric(self):
         policy = BossUtil.generate_ingest_policy(
-            self.job_id, self.upload_queue, self.tile_bucket, ingest_type=VOLUMETRIC_INGEST)
+            self.job_id, self.upload_queue, self.tile_index_queue, self.tile_bucket.bucket.name, ingest_type=VOLUMETRIC_INGEST)
         try:
             self.assertEqual(settings.IAM_POLICY_PATH, policy.path)
             self.assertIsNotNone(policy.default_version)
             statements = policy.default_version.document['Statement']
+            self.assertEqual(2, len(statements))
             for stmt in statements:
-                if stmt['Sid'] == 'ClientQueuePolicy':
+                if stmt['Sid'] == 'ClientUploadQueuePolicy':
                     self.assertCountEqual(["sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:DeleteMessage"],
                         stmt['Action'])
                     self.assertEqual(self.upload_queue.arn, stmt['Resource'])
@@ -77,8 +88,8 @@ class TestBossUtil(unittest.TestCase):
             policy.delete()
 
     def test_delete_ingest_policy(self):
-        policy = BossUtil.generate_ingest_policy(
-            self.job_id, self.upload_queue, self.tile_bucket)
+        BossUtil.generate_ingest_policy(
+            self.job_id, self.upload_queue, self.tile_index_queue, self.tile_bucket.bucket.name)
         self.assertTrue(BossUtil.delete_ingest_policy(self.job_id))
 
 

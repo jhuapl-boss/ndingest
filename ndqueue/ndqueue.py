@@ -125,7 +125,7 @@ class NDQueue(object):
 
         A dead letter queue will be created if queue_arn is not supplied.  If
         creating, the dead letter queue will have the same name as the queue it
-        supports, but with '_dead_letter' appended.
+        supports, but with '-dlq' appended.
 
         Args:
           max_receive_count (int): Max times a message may be received before sending to the dead letter queue.
@@ -150,7 +150,7 @@ class NDQueue(object):
                 raise RuntimeError(msg)
         else:
             # Create dead letter queue.
-            name = self.queue_name + '_dead_letter'
+            name = self.queue_name + '-dlq'
             sqs = boto3.resource(
                 'sqs',
                 region_name=self.region_name, endpoint_url=self.endpoint_url,
@@ -418,7 +418,8 @@ class NDQueue(object):
             )
             # TODO KL Better handling for 400 aka when delete fails
             if 'Failed' in response:
-                print (response['Failed']['Message'])
+                for msg in response['Failed']:
+                    print ('Delete failed: id: {}, code: {} - {}'.format(msg['Id'], msg['Code'], msg['Message']))
                 raise
             else:
                 return response
