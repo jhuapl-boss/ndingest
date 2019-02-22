@@ -35,7 +35,7 @@ class LambdaInterface(object):
           Handler = 'lambda_handler',
           Code = {
             'ZipFile': self.readZipFile(zip_file),
-            }
+            },
           Timeout = timeout,
           MemorySize = memory_size,
           Publis = True
