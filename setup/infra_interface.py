@@ -56,8 +56,7 @@ class InfraInterface(object):
       lambda_interface = LambdaInterface(func_name)
       lambda_interface.deleteFunction()
 
-def main()
-  
+def main():
   parser = argparse.ArgumentParser(description='')
   parser.add_argument('--action', dest='action', action='store', choices=['create', 'delete'], help='Action')
   result = parser.parse_args()

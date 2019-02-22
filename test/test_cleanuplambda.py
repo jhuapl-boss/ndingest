@@ -86,5 +86,5 @@ class Test_UploadLambda:
     # testing if the message was deleted from the cleanup queue or not
     for message in self.cleanup_queue.receiveMessage():
       # KL TODO write the message id into the JSON event file directly
-      print message
+      print(message)
       # assert False
