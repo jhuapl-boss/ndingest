@@ -68,7 +68,9 @@ class TestDeadletterQueue(unittest.TestCase):
 
         return nd_proj
 
-
+    #TODO: This test checks the default naming path when creating a queue, which eventually calls a function (generateBossQueueName)
+    # which is not currently implemented. 
+    @unittest.skip("generateBossQueueName() not implemented")
     def test_create_queue_with_default_name(self):
         # Create upload queue.
         UploadQueue.createQueue(self.nd_proj, endpoint_url=self.endpoint_url)
