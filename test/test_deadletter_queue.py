@@ -68,8 +68,6 @@ class TestDeadletterQueue(unittest.TestCase):
 
         return nd_proj
 
-    #TODO: This test checks the default naming path when creating a queue, which eventually calls a function (generateBossQueueName)
-    # which is not currently implemented. 
     @unittest.skip("generateBossQueueName() not implemented")
     def test_create_queue_with_default_name(self):
         # Create upload queue.
@@ -80,7 +78,7 @@ class TestDeadletterQueue(unittest.TestCase):
         exp_max_receives = 4
         dl_queue = self.upload_queue.addDeadLetterQueue(exp_max_receives)
 
-        exp_name = self.upload_queue.queue_name + '_dead_letter'
+        exp_name = self.upload_queue.queue_name + '-dlq'
         exp_arn = dl_queue.attributes['QueueArn']
 
         try:
