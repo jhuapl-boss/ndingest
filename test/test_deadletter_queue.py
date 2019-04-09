@@ -68,7 +68,6 @@ class TestDeadletterQueue(unittest.TestCase):
 
         return nd_proj
 
-    @unittest.skip("generateBossQueueName() not implemented")
     def test_create_queue_with_default_name(self):
         # Create upload queue.
         UploadQueue.createQueue(self.nd_proj, endpoint_url=self.endpoint_url)
