@@ -68,7 +68,6 @@ class TestDeadletterQueue(unittest.TestCase):
 
         return nd_proj
 
-
     def test_create_queue_with_default_name(self):
         # Create upload queue.
         UploadQueue.createQueue(self.nd_proj, endpoint_url=self.endpoint_url)
@@ -78,7 +77,7 @@ class TestDeadletterQueue(unittest.TestCase):
         exp_max_receives = 4
         dl_queue = self.upload_queue.addDeadLetterQueue(exp_max_receives)
 
-        exp_name = self.upload_queue.queue_name + '_dead_letter'
+        exp_name = self.upload_queue.queue_name + '-dlq'
         exp_arn = dl_queue.attributes['QueueArn']
 
         try:
