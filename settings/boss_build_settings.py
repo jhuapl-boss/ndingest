@@ -42,6 +42,7 @@ def create_settings(tmpl_fp, boss_fp):
 
     nd_config['boss']['domain'] = boss_config['system']['fqdn'].split('.', 1)[1]
 
+    nd_config['aws']['region'] = 'us-east-1' # Hardcoded for testing
     nd_config['aws']['tile_bucket'] = boss_config['aws']['tile_bucket']
     nd_config['aws']['cuboid_bucket'] = boss_config['aws']['cuboid_bucket']
     nd_config['aws']['tile_index_table'] = boss_config['aws']['tile-index-table']
