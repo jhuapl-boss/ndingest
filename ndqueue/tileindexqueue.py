@@ -62,7 +62,7 @@ class TileIndexQueue(NDQueue):
       sqs.create_queue(
         QueueName=queue_name,
         Attributes={
-          'VisibilityTimeout': '15',
+          'VisibilityTimeout': '120',
           'DelaySeconds': '0',
           'MaximumMessageSize': '262144',
           'MessageRetentionPeriod': '1209600'   # 14 days.
