@@ -1,0 +1,41 @@
+version: 2.1
+orbs:
+  python: circleci/python@0.2.1
+
+commands:
+  install:
+    description: "Install Python dependencies"
+    steps:
+      - checkout
+      - python/load-cache
+      - python/install-deps
+      - python/save-cache
+
+  test_ndingest:
+    description: "Test ndingest"
+    steps:
+      - run: ln -s /home/circleci/project /home/circleci/ndingest
+      - run: cp settings/settings.ini.test settings/settings.ini
+      - run: python -m pytest -c test_apl.cfg
+jobs:
+  test_py3_5:
+    docker:
+      - image: circleci/python:3.5
+      - image: circleci/dynamodb:latest
+    environment:
+      NDINGEST_TEST: 1
+      AWS_ACCESS_KEY_ID: testing
+      AWS_SECRET_ACCESS_KEY: testing
+      AWS_SECURITY_TOKEN: testing
+      AWS_SESSION_TOKEN: testing
+      PYTHONPATH: /home/circleci/
+    steps:
+      - install
+      - test_ndingest
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test_py3_5
+
