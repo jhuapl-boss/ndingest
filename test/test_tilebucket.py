@@ -15,12 +15,9 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
-import sys
-sys.path.append('..')
 from ndingest.settings.settings import Settings
 settings = Settings.load()
 from io import BytesIO
-from ndingest.ndbucket.tilebucket import TileBucket
 from ndingest.ndingestproj.ingestproj import IngestProj
 ProjClass = IngestProj.load()
 if settings.PROJECT_NAME == 'Boss':
@@ -29,31 +26,7 @@ else:
     nd_proj = ProjClass('kasthuri11', 'image', '0')
 
 
-class Test_Upload_Bucket():
-
-  @classmethod
-  def setup_class(cls):
-    """Setup Parameters"""
-    if 'S3_ENDPOINT' in dir(settings):
-      cls.endpoint_url = settings.S3_ENDPOINT
-    else:
-      cls.endpoint_url = None
-    TileBucket.createBucket(endpoint_url=cls.endpoint_url)
-    cls.tile_bucket = TileBucket(nd_proj.project_name, endpoint_url=cls.endpoint_url)
-
-
-  @classmethod
-  def teardown_class(cls):
-    """Teardown Parameters"""
-
-    # Ensure bucket empty before deleting.
-    for objs in cls.tile_bucket.getAllObjects():
-      cls.tile_bucket.deleteObject(objs.key)
-
-    TileBucket.deleteBucket(endpoint_url=cls.endpoint_url)
-
-
-  def test_put_object(self):
+def test_put_object(tile_bucket):
     """Testing put object"""
     
     x_tile = 0
@@ -66,64 +39,69 @@ class Test_Upload_Bucket():
       # creating a tile handle for test
       tile_handle = BytesIO()
       # uploading object
-      response = self.tile_bucket.putObject(
+      response = tile_bucket.putObject(
           tile_handle, nd_proj.channel_name, nd_proj.resolution,
           x_tile, y_tile, z_tile, message_id, receipt_handle)
       tile_handle.close()
-      object_key = self.tile_bucket.encodeObjectKey(
+      object_key = tile_bucket.encodeObjectKey(
           nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile)
       # fetching object
-      object_body, object_message_id, object_receipt_handle, metadata = self.tile_bucket.getObject(
+      object_body, object_message_id, object_receipt_handle, metadata = tile_bucket.getObject(
           nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile)
       assert( object_message_id == message_id )
       assert( object_receipt_handle == receipt_handle )
       assert( exp_metadata == metadata )
 
-      object_message_id, object_receipt_handle, object_metadata = self.tile_bucket.getMetadata(
+      object_message_id, object_receipt_handle, object_metadata = tile_bucket.getMetadata(
           object_key)
       assert( object_message_id == message_id )
       assert( object_receipt_handle == receipt_handle )
       assert( exp_metadata == object_metadata )
 
       # delete the object
-      response = self.tile_bucket.deleteObject(object_key)
+      tile_bucket.deleteObject(object_key)
 
-
-  def test_getObjectByKey_raises_KeyError(self):
+def test_getObjectByKey_raises_KeyError(tile_bucket):
       """Test KeyError raised if key doesn't exist in S3."""
+    
       try:
-          self.tile_bucket.getObjectByKey('foo_key')
+          tile_bucket.getObjectByKey('foo_key')
       except KeyError:
           return
       assert(False)
 
-
-  def test_buildArn_no_folder(self):
+def test_buildArn_no_folder():
     """Test buildArn with folder's default value."""
 
+    from ndingest.ndbucket.tilebucket import TileBucket
     expected = 'arn:aws:s3:::my_bucket/*'
     actual = TileBucket.buildArn('my_bucket')
     assert(expected == actual)
     
 
-  def test_buildArn_with_folder_no_slashes(self):
+def test_buildArn_with_folder_no_slashes():
     """Test buildArn with a folder."""
 
+    from ndingest.ndbucket.tilebucket import TileBucket
     expected = 'arn:aws:s3:::my_bucket/some/folder/*'
     actual = TileBucket.buildArn('my_bucket', 'some/folder')
     assert(expected == actual)
-    
 
-  def test_buildArn_with_folder_with_slashes(self):
+def test_buildArn_with_folder_with_slashes():
     """Test buildArn with folder with slashes at beginning and end."""
+
+    # Import here so S3 is properly mocked.
+    from ndingest.ndbucket.tilebucket import TileBucket
 
     expected = 'arn:aws:s3:::my_bucket/some/folder/*'
     actual = TileBucket.buildArn('my_bucket', '/some/folder/')
     assert(expected == actual)
 
 
-  def test_createPolicy(self):
+def test_createPolicy(tile_bucket):
     """Test policy creation"""
+
+    from ndingest.ndbucket.tilebucket import TileBucket
 
     statements = [{
       'Sid': 'WriteAccess',
@@ -134,7 +112,7 @@ class Test_Upload_Bucket():
     expName = 'ndingest_test_tile_bucket_policy'
     expDesc = 'Test policy creation'
 
-    actual = self.tile_bucket.createPolicy(statements, expName, description=expDesc)
+    actual = tile_bucket.createPolicy(statements, expName, description=expDesc)
 
     try:
         assert(expName == actual.policy_name)
@@ -152,19 +130,21 @@ class Test_Upload_Bucket():
         actual.delete()
 
 
-  def test_createPolicy_with_folder(self):
+def test_createPolicy_with_folder(tile_bucket):
     """Test policy creation with a folder"""
 
+    from ndingest.ndbucket.tilebucket import TileBucket
+
     statements = [{
-      'Sid': 'WriteAccess',
-      'Effect': 'Allow',
-      'Action': ['s3:PutObject'] 
+        'Sid': 'WriteAccess',
+        'Effect': 'Allow',
+        'Action': ['s3:PutObject'] 
     }]
 
     expName = 'ndingest_test_tile_bucket_policy'
     folder = 'some/folder'
 
-    actual = self.tile_bucket.createPolicy(statements, expName, folder)
+    actual = tile_bucket.createPolicy(statements, expName, folder)
 
     try:
         assert(expName == actual.policy_name)
@@ -181,7 +161,7 @@ class Test_Upload_Bucket():
         actual.delete()
 
 
-  def test_deletePolicy(self):
+def test_deletePolicy(tile_bucket):
     """Test policy deletion"""
 
     statements = [{
@@ -191,14 +171,7 @@ class Test_Upload_Bucket():
     }]
 
     expName = 'ndingest_test_tile_bucket_policy'
-    policy = self.tile_bucket.createPolicy(statements, expName)
+    policy = tile_bucket.createPolicy(statements, expName)
     assert(expName == policy.policy_name)
-    self.tile_bucket.deletePolicy(expName)
-    assert(self.tile_bucket.getPolicyArn(expName) is None)
-
-
-if __name__ == '__main__':
-    sut = Test_Upload_Bucket()
-    sut.setup_class()
-    sut.test_createPolicy()
-    sut.teardown_class()
+    tile_bucket.deletePolicy(expName)
+    assert(tile_bucket.getPolicyArn(expName) is None)
