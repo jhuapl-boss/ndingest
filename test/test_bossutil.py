@@ -12,86 +12,101 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 import unittest
 from ndingest.util.bossutil import BossUtil, TILE_INGEST, VOLUMETRIC_INGEST
-from ndingest.ndbucket.tilebucket import TileBucket
-from ndingest.ndqueue.uploadqueue import UploadQueue
-from ndingest.ndqueue.tileindexqueue import TileIndexQueue
 from ndingest.ndingestproj.bossingestproj import BossIngestProj
 from ndingest.settings.settings import Settings
 settings = Settings.load()
 import warnings
 
-class TestBossUtil(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # Silence warnings about open boto3 sessions.
-        warnings.filterwarnings('ignore')
 
-        cls.job_id = 123
-        cls.nd_proj = BossIngestProj('testCol', 'kasthuri11', 'image', 0, cls.job_id)
+@pytest.fixture(scope='function')
+def boss_util_fixtures(tile_bucket, sqs):
+    job_id = 123
+    nd_proj = BossIngestProj('testCol', 'kasthuri11', 'image', 0, job_id)
 
-        TileBucket.createBucket()
-        cls.tile_bucket = TileBucket(cls.nd_proj.project_name)
+    from ndingest.ndqueue.uploadqueue import UploadQueue
+    UploadQueue.createQueue(nd_proj)
+    upload_queue = UploadQueue(nd_proj)
 
-        UploadQueue.createQueue(cls.nd_proj)
-        cls.upload_queue = UploadQueue(cls.nd_proj)
+    from ndingest.ndqueue.tileindexqueue import TileIndexQueue
+    TileIndexQueue.createQueue(nd_proj)
+    tile_index_queue = TileIndexQueue(nd_proj)
 
-        TileIndexQueue.createQueue(cls.nd_proj)
-        cls.tile_index_queue = TileIndexQueue(cls.nd_proj)
+    def get_test_data():
+        return (nd_proj, upload_queue, tile_index_queue, tile_bucket)
 
-    @classmethod
-    def tearDownClass(cls):
-        UploadQueue.deleteQueue(cls.nd_proj)
-        TileBucket.deleteBucket()
+    yield get_test_data
 
-    def test_create_ingest_policy_tile(self):
+    UploadQueue.deleteQueue(nd_proj)
+    TileIndexQueue.deleteQueue(nd_proj)
+    
+
+class TestBossUtil():
+    def _setup(self, boss_util_fixtures):
+        """
+        Create all member variables.  This was originally derived from
+        unittest.TestCase.  Put in every test method.
+        """
+        test_data = boss_util_fixtures()
+        self.job_id = test_data[0].job_id
+        self.upload_queue = test_data[1]
+        self.tile_index_queue = test_data[2]
+        self.tile_bucket = test_data[3]
+
+    def test_create_ingest_policy_tile(self, boss_util_fixtures):
+        self._setup(boss_util_fixtures)
         policy = BossUtil.generate_ingest_policy(
             self.job_id, self.upload_queue, self.tile_index_queue, self.tile_bucket.bucket.name, ingest_type=TILE_INGEST)
+        from ndingest.ndbucket.tilebucket import TileBucket
         try:
-            self.assertEqual(settings.IAM_POLICY_PATH, policy.path)
-            self.assertIsNotNone(policy.default_version)
+            assert settings.IAM_POLICY_PATH == policy.path
+            assert policy.default_version is not None
             statements = policy.default_version.document['Statement']
-            self.assertEqual(3, len(statements))
+            assert 3 == len(statements)
             for stmt in statements:
                 if stmt['Sid'] == 'ClientUploadQueuePolicy':
-                    self.assertCountEqual(["sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:DeleteMessage"],
-                        stmt['Action'])
-                    self.assertEqual(self.upload_queue.arn, stmt['Resource'])
+                    for perm in ["sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:DeleteMessage"]:
+                        assert perm in stmt['Action']
+                    assert len(stmt['Action']) == 3
+                    assert self.upload_queue.arn == stmt['Resource']
                 elif stmt['Sid'] == 'ClientTileBucketPolicy':
-                    self.assertCountEqual(["s3:PutObject"], stmt['Action'])
-                    self.assertEqual(TileBucket.buildArn(self.tile_bucket.bucket.name), stmt['Resource'])
+                    assert "s3:PutObject" in stmt['Action']
+                    assert len(stmt['Action']) == 1
+                    assert TileBucket.buildArn(self.tile_bucket.bucket.name) == stmt['Resource']
                 elif stmt['Sid'] == 'ClientIndexQueuePolicy':
-                    self.assertCountEqual(["sqs:SendMessage"],
-                        stmt['Action'])
-                    self.assertEqual(self.tile_index_queue.arn, stmt['Resource'])
+                    assert "sqs:SendMessage" in stmt['Action']
+                    assert len(stmt['Action']) == 1
+                    assert self.tile_index_queue.arn == stmt['Resource']
         finally:
             policy.delete()
 
-    def test_create_ingest_policy_volumetric(self):
+    def test_create_ingest_policy_volumetric(self, boss_util_fixtures):
+        self._setup(boss_util_fixtures)
         policy = BossUtil.generate_ingest_policy(
             self.job_id, self.upload_queue, self.tile_index_queue, self.tile_bucket.bucket.name, ingest_type=VOLUMETRIC_INGEST)
+        from ndingest.ndbucket.tilebucket import TileBucket
         try:
-            self.assertEqual(settings.IAM_POLICY_PATH, policy.path)
-            self.assertIsNotNone(policy.default_version)
+            assert settings.IAM_POLICY_PATH == policy.path
+            assert policy.default_version is not None
             statements = policy.default_version.document['Statement']
-            self.assertEqual(2, len(statements))
+            assert 2 == len(statements)
             for stmt in statements:
                 if stmt['Sid'] == 'ClientUploadQueuePolicy':
-                    self.assertCountEqual(["sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:DeleteMessage"],
-                        stmt['Action'])
-                    self.assertEqual(self.upload_queue.arn, stmt['Resource'])
+                    for perm in ["sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:DeleteMessage"]:
+                        assert perm in stmt['Action']
+                    assert 3 == len(stmt['Action'])
+                    assert self.upload_queue.arn == stmt['Resource']
                 elif stmt['Sid'] == 'ClientTileBucketPolicy':
-                    self.assertCountEqual(["s3:PutObject"], stmt['Action'])
-                    self.assertEqual(TileBucket.buildArn(self.tile_bucket.bucket.name), stmt['Resource'])
+                    assert "s3:PutObject" in stmt['Action']
+                    assert len(stmt['Action']) == 1
+                    assert TileBucket.buildArn(self.tile_bucket.bucket.name) == stmt['Resource']
         finally:
             policy.delete()
 
-    def test_delete_ingest_policy(self):
+    def test_delete_ingest_policy(self, boss_util_fixtures):
+        self._setup(boss_util_fixtures)
         BossUtil.generate_ingest_policy(
             self.job_id, self.upload_queue, self.tile_index_queue, self.tile_bucket.bucket.name)
-        self.assertTrue(BossUtil.delete_ingest_policy(self.job_id))
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert BossUtil.delete_ingest_policy(self.job_id)

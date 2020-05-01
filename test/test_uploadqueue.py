@@ -1,5 +1,5 @@
 # Copyright 2014 NeuroData (http://neurodata.io)
-# Copyright 2016 The Johns Hopkins University Applied Physics Laboratory
+# Copyright 2020 The Johns Hopkins University Applied Physics Laboratory
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,69 +13,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-from __future__ import print_function
+import botocore
 import hashlib
-import sys
-sys.path.append('..')
-from ndingest.settings.settings import Settings
-settings = Settings.load()
 import json
 from random import randint
-from ndingest.ndqueue.uploadqueue import UploadQueue
+from ndingest.settings.settings import Settings
+settings = Settings.load()
 from ndingest.ndqueue.serializer import Serializer
 serializer = Serializer.load()
 from ndingest.ndingestproj.ingestproj import IngestProj
 ProjClass = IngestProj.load()
-if settings.PROJECT_NAME == 'Boss':
-    jobid = randint(100, 999)
-    nd_proj = ProjClass('testCol', 'kasthuri11', 'image', 0, jobid)
-else:
-    nd_proj = ProjClass('kasthuri11', 'image', '0')
 
+def generate_proj():
+    """Generate project name based on Boss or Neurodata."""
 
-class Test_UploadQueue():
+    num = 100
 
-  @classmethod
-  def setup_class(cls):
-    """Setup the class"""
-    if 'SQS_ENDPOINT' in dir(settings):
-      cls.endpoint_url = settings.SQS_ENDPOINT
+    if settings.PROJECT_NAME == 'Boss':
+        job_id = num
+        nd_proj = ProjClass('testCol', 'kasthuri11', 'image', 0, job_id)
     else:
-      cls.endpoint_url = None
-    UploadQueue.createQueue(nd_proj, endpoint_url=cls.endpoint_url)
-    cls.upload_queue = UploadQueue(nd_proj, endpoint_url=cls.endpoint_url)
+        channel = 'image{}'.format(num)
+        nd_proj = ProjClass('kasthuri11', channel, '0')
 
+    return nd_proj
 
-  @classmethod
-  def teardown_class(cls):
-    """Teardown parameters"""
-    UploadQueue.deleteQueue(nd_proj, endpoint_url=cls.endpoint_url)
-
-  
-  def test_Message(self):
+def test_message(sqs):
     """Test put, get and delete Message"""
-    
+
     x_tile = 0
     y_tile = 0
 
+    proj = generate_proj()
+
+    from ndingest.ndqueue.uploadqueue import UploadQueue
+    UploadQueue.createQueue(proj)
+    upload_queue = UploadQueue(proj)
+
     for z_tile in range(0, 2, 1):
-      # encode the message
-      message = serializer.encodeUploadMessage(nd_proj.project_name, nd_proj.channel_name, nd_proj.resolution, x_tile, y_tile, z_tile)
-      # send message to the queue
-      self.upload_queue.sendMessage(message)
-    
+        # encode the message
+        message = serializer.encodeUploadMessage(proj.project_name, proj.channel_name, proj.resolution, x_tile, y_tile, z_tile)
+        # send message to the queue
+        upload_queue.sendMessage(message)
+
     # receive message from the queue
-    for message_id, receipt_handle, message_body in self.upload_queue.receiveMessage(number_of_messages=3):
-      # check if we get the tile_info back correctly
-      assert(message_body['z_tile'] in [0, 1, 2])
-      # delete message from the queue
-      response = self.upload_queue.deleteMessage(message_id, receipt_handle)
-      # check if the message was sucessfully deleted
-      assert('Successful' in response)
+    for message_id, receipt_handle, message_body in upload_queue.receiveMessage(number_of_messages=3):
+        # check if we get the tile_info back correctly
+        assert(message_body['z_tile'] in [0, 1, 2])
+        # delete message from the queue
+        response = upload_queue.deleteMessage(message_id, receipt_handle)
+        # check if the message was sucessfully deleted
+        assert('Successful' in response)
 
 
-  def test_sendBatchMessages(self):
+def test_sendBatchMessages(sqs):
     fake_data0 = {'foo': 'bar'}
     fake_data1 = {'john': 'doe'}
     jsonized0 = json.dumps(fake_data0)
@@ -83,38 +74,49 @@ class Test_UploadQueue():
     md5_0 = hashlib.md5(jsonized0.encode('utf-8')).hexdigest()
     md5_1 = hashlib.md5(jsonized1.encode('utf-8')).hexdigest()
 
+    proj = generate_proj()
+
+    from ndingest.ndqueue.uploadqueue import UploadQueue
+    UploadQueue.createQueue(proj)
+    upload_queue = UploadQueue(proj)
+
     try:
-      response = self.upload_queue.sendBatchMessages([jsonized0, jsonized1], 0)
-      assert('Successful' in response)
-      success_ids = []
-      for msg_result in response['Successful']:
-        id = msg_result['Id']
-        success_ids.append(id)
-        if id == '0':
-          assert(md5_0 == msg_result['MD5OfMessageBody'])
-        elif id == '1':
-          assert(md5_1 == msg_result['MD5OfMessageBody'])
+        response = upload_queue.sendBatchMessages([jsonized0, jsonized1], 0)
+        assert('Successful' in response)
+        success_ids = []
+        for msg_result in response['Successful']:
+            id = msg_result['Id']
+            success_ids.append(id)
+            if id == '0':
+                assert(md5_0 == msg_result['MD5OfMessageBody'])
+            elif id == '1':
+                assert(md5_1 == msg_result['MD5OfMessageBody'])
 
-      assert('0' in success_ids)
-      assert('1' in success_ids)
+        assert('0' in success_ids)
+        assert('1' in success_ids)
     finally:
-      for message_id, receipt_handle, _ in self.upload_queue.receiveMessage():
-        self.upload_queue.deleteMessage(message_id, receipt_handle)
+        for message_id, receipt_handle, _ in upload_queue.receiveMessage():
+            upload_queue.deleteMessage(message_id, receipt_handle)
 
-
-  def test_createPolicy(self):
+def test_createPolicy(sqs, iam):
     """Test policy creation"""
 
+    proj = generate_proj()
+
+    from ndingest.ndqueue.uploadqueue import UploadQueue
+    UploadQueue.createQueue(proj)
+    upload_queue = UploadQueue(proj)
+
     statements = [{
-      'Sid': 'ReceiveAccessStatement',
-      'Effect': 'Allow',
-      'Action': ['sqs:ReceiveMessage'] 
+        'Sid': 'ReceiveAccessStatement',
+        'Effect': 'Allow',
+        'Action': ['sqs:ReceiveMessage'] 
     }]
 
-    expName = self.upload_queue.generateQueueName(nd_proj)
+    expName = upload_queue.generateQueueName(proj)
     expDesc = 'Test policy creation'
 
-    actual = self.upload_queue.createPolicy(statements, description=expDesc)
+    actual = upload_queue.createPolicy(statements, description=expDesc)
 
     try:
         assert(expName == actual.policy_name)
@@ -123,23 +125,9 @@ class Test_UploadQueue():
 
         # Confirm resource set correctly to the upload queue.
         statements = actual.default_version.document['Statement']
-        arn = self.upload_queue.queue.attributes['QueueArn']
+        arn = upload_queue.queue.attributes['QueueArn']
         for stmt in statements:
             assert(stmt['Resource'] == arn)
 
     finally:
         actual.delete()
-
-  def test_deletePolicy(self):
-    """Test policy deletion"""
-
-    statements = [{
-      'Sid': 'ReceiveAccessStatement',
-      'Effect': 'Allow',
-      'Action': ['sqs:ReceiveMessage'] 
-    }]
-
-    expName = self.upload_queue.generateQueueName(nd_proj)
-    policy = self.upload_queue.createPolicy(statements)
-    self.upload_queue.deletePolicy(expName)
-    assert(self.upload_queue.getPolicyArn(expName) is None)

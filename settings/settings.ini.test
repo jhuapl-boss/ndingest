@@ -1,0 +1,21 @@
+[proj]
+project_name = Boss
+dev_mode = False
+
+[boss]
+domain = bosstest.boss
+
+[aws]
+region = us-east-1
+tile_bucket = testtiles.bosstest.boss
+cuboid_bucket = testcuboids.bosstest.boss
+tile_index_table = tileindex.bosstest.boss
+cuboid_index_table = s3index.bosstest.boss
+max_task_id_suffix = 100
+
+[spdb]
+super_cuboid_size = 512, 512, 16
+
+[testing]
+dynamo_endpoint = http://localhost:8000
+
