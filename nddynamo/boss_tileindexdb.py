@@ -42,6 +42,9 @@ TASK_INDEX = 'task_id_index'
 # Task id suffix must be >= 0 and < than this value.
 MAX_TASK_ID_SUFFIX = settings.MAX_TASK_ID_SUFFIX
 
+# Name of key in Dynamo that stores which tiles were uploaded for the chunk.
+TILE_UPLOADED_MAP_KEY = 'tile_uploaded_map'
+
 class BossTileIndexDB:
 
   def __init__(self, project_name, region_name=settings.REGION_NAME, endpoint_url=None):
@@ -204,7 +207,7 @@ class BossTileIndexDB:
         response = self.table.put_item(
             Item = {
                 'chunk_key': chunk_key,
-                'tile_uploaded_map': {},
+                TILE_UPLOADED_MAP_KEY: {},
                 'task_id': task_id,
                 'appended_task_id': appended_task_id,
                 'expires': expires
@@ -236,13 +239,9 @@ class BossTileIndexDB:
             'chunk_key': chunk_key,
             'task_id': task_id
           },
-          #UpdateExpression = 'ADD tile_uploaded_map.{} :uploaded'.format(tile_key),
-          #ExpressionAttributeValues = {
-          #    ':uploaded': 1
-          #},
           UpdateExpression = 'ADD #tilemap.#tilekey :uploaded',
           ExpressionAttributeNames = {
-              '#tilemap': 'tile_uploaded_map',
+              '#tilemap': TILE_UPLOADED_MAP_KEY,
               '#tilekey': tile_key
           },
           ExpressionAttributeValues = {
@@ -250,7 +249,7 @@ class BossTileIndexDB:
           },
           ReturnValues = 'ALL_NEW'
       )
-      return self.cuboidReady(chunk_key, response['Attributes']['tile_uploaded_map'])
+      return self.cuboidReady(chunk_key, response['Attributes'][TILE_UPLOADED_MAP_KEY])
     except botocore.exceptions.ClientError as e:
       if e.response['Error']['Code'] == 'ValidationException':
         print('Chunk must have been deleted, aborting.')
