@@ -19,7 +19,7 @@ import sys
 sys.path.append('..')
 from ndingest.settings.settings import Settings
 settings = Settings.load()
-from ndingest.nddynamo.boss_tileindexdb import BossTileIndexDB
+from ndingest.nddynamo.boss_tileindexdb import BossTileIndexDB, TILE_UPLOADED_MAP_KEY
 from ndingest.ndingestproj.bossingestproj import BossIngestProj
 job_id = '123'
 nd_proj = BossIngestProj('testCol', 'kasthuri11', 'image', 0, job_id)
@@ -100,7 +100,7 @@ class Test_BossTileIndexDB(unittest.TestCase):
         self.tileindex_db.createCuboidEntry(chunk_key, task_id)
         actual = self.tileindex_db.getCuboid(chunk_key, task_id)
         self.assertEqual(chunk_key, actual['chunk_key'])
-        self.assertEqual({}, actual['tile_uploaded_map'])
+        self.assertEqual({}, actual[TILE_UPLOADED_MAP_KEY])
         self.assertIn('expires', actual)
         self.assertEqual(task_id, actual['task_id'])
         self.assertTrue(actual['appended_task_id'].startswith('{}_'.format(task_id)))
@@ -118,7 +118,7 @@ class Test_BossTileIndexDB(unittest.TestCase):
 
         expected = { 'fakekey&sss': 1 }
         resp = self.tileindex_db.getCuboid(chunk_key, task_id)
-        self.assertEqual(expected, resp['tile_uploaded_map'])
+        self.assertEqual(expected, resp[TILE_UPLOADED_MAP_KEY])
 
 
     def test_markTileAsUploaded_multiple(self):
@@ -133,12 +133,12 @@ class Test_BossTileIndexDB(unittest.TestCase):
 
         expected_first = { 'fakekey&sss': 1 }
         resp = self.tileindex_db.getCuboid(chunk_key, task_id)
-        self.assertEqual(expected_first, resp['tile_uploaded_map'])
+        self.assertEqual(expected_first, resp[TILE_UPLOADED_MAP_KEY])
 
         expected_second = { 'fakekey&sss': 1, 'fakekey&ttt': 1 }
         self.tileindex_db.markTileAsUploaded(chunk_key, 'fakekey&ttt', task_id)
         resp = self.tileindex_db.getCuboid(chunk_key, task_id)
-        self.assertCountEqual(expected_second, resp['tile_uploaded_map'])
+        self.assertCountEqual(expected_second, resp[TILE_UPLOADED_MAP_KEY])
 
 
     def test_deleteItem(self):
@@ -169,16 +169,16 @@ class Test_BossTileIndexDB(unittest.TestCase):
         self.tileindex_db.createCuboidEntry(chunk_key4, task_id=5)
 
         expected = [ 
-            {'task_id': 3, 'tile_uploaded_map': {}, 'chunk_key': chunk_key1},
-            {'task_id': 3, 'tile_uploaded_map': {}, 'chunk_key': chunk_key2},
-            {'task_id': 3, 'tile_uploaded_map': {}, 'chunk_key': chunk_key3}
+            {'task_id': 3, TILE_UPLOADED_MAP_KEY: {}, 'chunk_key': chunk_key1},
+            {'task_id': 3, TILE_UPLOADED_MAP_KEY: {}, 'chunk_key': chunk_key2},
+            {'task_id': 3, TILE_UPLOADED_MAP_KEY: {}, 'chunk_key': chunk_key3}
         ]
 
         actual = list(self.tileindex_db.getTaskItems(3))
         filtered = [
             {
                 'task_id': i['task_id'],
-                'tile_uploaded_map': i['tile_uploaded_map'],
+                TILE_UPLOADED_MAP_KEY: i[TILE_UPLOADED_MAP_KEY],
                 'chunk_key': i['chunk_key']
             } for i in actual]
 
@@ -202,9 +202,9 @@ class Test_BossTileIndexDB(unittest.TestCase):
         self.tileindex_db.createCuboidEntry(chunk_key4, task_id=5)
 
         expected = [ 
-            {'task_id': job, 'tile_uploaded_map': {}, 'chunk_key': chunk_key1},
-            {'task_id': job, 'tile_uploaded_map': {}, 'chunk_key': chunk_key2},
-            {'task_id': job, 'tile_uploaded_map': {}, 'chunk_key': chunk_key3}
+            {'task_id': job, TILE_UPLOADED_MAP_KEY: {}, 'chunk_key': chunk_key1},
+            {'task_id': job, TILE_UPLOADED_MAP_KEY: {}, 'chunk_key': chunk_key2},
+            {'task_id': job, TILE_UPLOADED_MAP_KEY: {}, 'chunk_key': chunk_key3}
         ]
 
         # Limit only 1 read per query so multiple queries required.
@@ -213,7 +213,7 @@ class Test_BossTileIndexDB(unittest.TestCase):
         filtered = [
             {
                 'task_id': i['task_id'],
-                'tile_uploaded_map': i['tile_uploaded_map'],
+                TILE_UPLOADED_MAP_KEY: i[TILE_UPLOADED_MAP_KEY],
                 'chunk_key': i['chunk_key']
             } for i in actual]
 
