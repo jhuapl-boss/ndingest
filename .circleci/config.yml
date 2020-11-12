@@ -18,9 +18,9 @@ commands:
       - run: cp settings/settings.ini.test settings/settings.ini
       - run: python -m pytest -c test_apl.cfg
 jobs:
-  test_py3_5:
+  test_py3_8:
     docker:
-      - image: circleci/python:3.5
+      - image: circleci/python:3.8
       - image: circleci/dynamodb:latest
     environment:
       NDINGEST_TEST: 1
@@ -37,5 +37,5 @@ workflows:
   version: 2
   test:
     jobs:
-      - test_py3_5
+      - test_py3_8
 
